@@ -24,3 +24,8 @@ services:
       - java-service
       - python-service
     restart: unless-stopped
+
+  mock-graph:
+    image: ghcr.io/sergey-shulyak/mock-graph-server:latest
+    ports:
+      - "8088:8080"
