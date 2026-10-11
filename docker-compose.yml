@@ -23,6 +23,14 @@ services:
     depends_on:
       - java-service
       - python-service
+      - net-service
+    restart: unless-stopped
+
+  net-service:
+    build:
+      context: ../.net-service
+    ports:
+      - "5224:8080"
     restart: unless-stopped
 
   mock-graph:
@@ -30,3 +38,5 @@ services:
     ports:
       - "8088:8080"
     restart: unless-stopped
+
+    
