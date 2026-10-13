@@ -6,7 +6,13 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: db
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-example}
+      DB_NAME: ${DB_NAME:-copilot_db}
     restart: unless-stopped
+    depends_on:
+      - db
 
   python-service:
     build:
@@ -39,4 +45,18 @@ services:
       - "8088:8080"
     restart: unless-stopped
 
-    
+  db:
+    image: postgres
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-example}
+      POSTGRES_DB: ${DB_NAME:-copilot_db}
+    volumes:
+          - pg_data:/var/lib/postgresql
+
+volumes:
+  pg_data:    
