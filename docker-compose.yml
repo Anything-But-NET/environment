@@ -41,8 +41,13 @@ services:
 
   mock-graph:
     image: ghcr.io/sergey-shulyak/mock-graph-server:latest
+    container_name: mock-graph
     ports:
       - "8088:8080"
+    environment:
+      - MOCKGRAPH__FIXTUREPATH=/app/fixtures/fixture.yaml
+    volumes:
+      - ./fixtures:/app/fixtures:ro
     restart: unless-stopped
 
   db:
@@ -56,7 +61,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-example}
       POSTGRES_DB: ${DB_NAME:-copilot_db}
     volumes:
-          - pg_data:/var/lib/postgresql
+      - pg_data:/var/lib/postgresql
 
 volumes:
-  pg_data:    
+  pg_data:
