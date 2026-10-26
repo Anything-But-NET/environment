@@ -1,0 +1,32 @@
+meta {
+  name: Post Question - Missing Query ID (expect 400)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{coreBaseUrl}}/api/v1/chat/question
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "channel": "teams",
+    "user_email": "oleh.pona@company.com",
+    "query": "Hello?"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error_code: eq BAD_REQUEST
+}
+
+docs {
+  Validates that omitting required query_id returns 400.
+}

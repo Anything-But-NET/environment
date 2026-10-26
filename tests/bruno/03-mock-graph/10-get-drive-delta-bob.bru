@@ -1,0 +1,24 @@
+meta {
+  name: Get Drive Delta - Bob (expect 200)
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{mockGraphBaseUrl}}/v1.0/drives/{{driveId}}/root/delta?$top=100&$select=id,name
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer user:bob
+}
+
+assert {
+  res.status: eq 200
+  res.body.value: isDefined
+}
+
+docs {
+  Returns drive delta changes visible to user:bob.
+}

@@ -1,0 +1,33 @@
+meta {
+  name: Post Question - Invalid Channel (expect 400)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{coreBaseUrl}}/api/v1/chat/question
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "query_id": "req-1",
+    "channel": "telegram",
+    "user_email": "a@b.com",
+    "query": "Hello?"
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error_code: eq BAD_REQUEST
+}
+
+docs {
+  Validates that channel outside enum [slack, teams] returns 400.
+}

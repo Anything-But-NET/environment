@@ -1,0 +1,35 @@
+meta {
+  name: Generate Answer - Empty Allowed Groups (expect 400 or 422)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{ragBaseUrl}}/api/v1/rag/generate
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "query_id": "req-rag-live-err-01",
+    "query": "How to get internet compensation?",
+    "user_permissions": {
+      "allowed_groups": []
+    }
+  }
+}
+
+assert {
+  res.status: in [400, 422]
+  res.body.status: eq VALIDATION_ERROR
+}
+
+docs {
+  Validates that empty allowed_groups violates minItems: 1 validation
+  and returns GenerationError with VALIDATION_ERROR.
+}

@@ -1,0 +1,37 @@
+meta {
+  name: Generate Answer - Empty Query (expect 400 or 422)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{ragBaseUrl}}/api/v1/rag/generate
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "query_id": "req-rag-live-err-02",
+    "query": "",
+    "user_permissions": {
+      "allowed_groups": [
+        "All Staff"
+      ]
+    }
+  }
+}
+
+assert {
+  res.status: in [400, 422]
+  res.body.status: eq VALIDATION_ERROR
+}
+
+docs {
+  Validates that empty query violates minLength: 1 validation
+  and returns GenerationError with VALIDATION_ERROR.
+}

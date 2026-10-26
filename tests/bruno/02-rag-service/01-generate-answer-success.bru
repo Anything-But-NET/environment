@@ -1,0 +1,43 @@
+meta {
+  name: Generate Answer - Success (expect 200)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{ragBaseUrl}}/api/v1/rag/generate
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "query_id": "req-rag-live-001",
+    "query": "How to get internet compensation?",
+    "user_permissions": {
+      "allowed_groups": [
+        "Engineering",
+        "All Staff",
+        "alice@contoso-mock.onmicrosoft.com"
+      ]
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.query_id: eq req-rag-live-001
+  res.body.status: isDefined
+  res.body.confidence_score: gte 0
+  res.body.citations: isDefined
+}
+
+docs {
+  Invoked by Core after resolving user ACL groups.
+  Performs permission-filtered retrieval and generates grounded answer with citations.
+  Returns RagRetrievalResponse (status: ANSWER_GENERATED, EMPTY_RETRIEVAL, or LOW_CONFIDENCE).
+}
