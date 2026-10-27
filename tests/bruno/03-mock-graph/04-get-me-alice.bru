@@ -1,0 +1,24 @@
+meta {
+  name: Get Me - Alice (expect 200)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{mockGraphBaseUrl}}/v1.0/me
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer user:alice
+}
+
+assert {
+  res.status: eq 200
+  res.body.displayName: eq Alice Backend
+}
+
+docs {
+  Returns user profile for user:alice.
+}

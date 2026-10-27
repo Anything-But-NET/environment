@@ -1,0 +1,34 @@
+meta {
+  name: Post Question - Empty Query (expect 400)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{coreBaseUrl}}/api/v1/chat/question
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "query_id": "req-live-400",
+    "channel": "slack",
+    "user_email": "alice@contoso-mock.onmicrosoft.com",
+    "query": ""
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error_code: eq BAD_REQUEST
+}
+
+docs {
+  Validates that sending an empty query string violates minLength validation
+  and returns a 400 BAD_REQUEST GatewayErrorResponse.
+}

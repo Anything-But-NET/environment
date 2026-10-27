@@ -1,0 +1,23 @@
+meta {
+  name: Download File Content - Alice (expect 200 or 302)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{mockGraphBaseUrl}}/v1.0/drives/{{driveId}}/root:/Engineering/Backend/db-migrations.md:/content
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer user:alice
+}
+
+assert {
+  res.status: in [200, 302]
+}
+
+docs {
+  Downloads raw content or follows redirect for db-migrations.md.
+}

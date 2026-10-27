@@ -1,0 +1,37 @@
+meta {
+  name: Post Question (Teams) - Success (expect 200)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{coreBaseUrl}}/api/v1/chat/question
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "query_id": "req-live-001",
+    "channel": "teams",
+    "user_email": "alice@contoso-mock.onmicrosoft.com",
+    "query": "How to get internet compensation?"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.query_id: eq req-live-001
+  res.body.status: isDefined
+  res.body.reply_text: isDefined
+  res.body.citations: isDefined
+}
+
+docs {
+  Forward user question from Teams to Core service.
+  Expects 200 OK with UserQuestionResponse (status: ANSWERED or ESCALATED_TO_EXPERT).
+}

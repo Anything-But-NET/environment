@@ -1,0 +1,30 @@
+meta {
+  name: Admin - Add Bob to Backend Group (expect 200)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{mockGraphBaseUrl}}/_admin/groups/eng-backend/members
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "member": "user:bob"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.changed: eq true
+}
+
+docs {
+  Adds user:bob to eng-backend group in Mock Graph server.
+}
