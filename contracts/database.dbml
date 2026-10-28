@@ -1,0 +1,70 @@
+Table core.document_metadata {
+  document_id varchar(255) [pk, not null]
+  source_system varchar(100)
+  title text
+  url text
+  last_updated timestamptz
+  allowed_groups "text[]" [not null, default: '{}']
+  last_sync_at timestamptz [not null]
+
+  indexes {
+    allowed_groups [type: gin, name: 'idx_document_metadata_allowed_groups']
+  }
+}
+
+Enum sync_status {
+  IN_PROGRESS
+  COMPLETED
+  FAILED_FETCH
+  FAILED_PARSE
+  FAILED_STORAGE
+}
+
+Table core.document_sync_runs {
+  id uuid [pk]
+  document_id varchar(255) [not null]
+  status sync_status [not null, default: 'IN_PROGRESS']
+  error_message text
+  started_at timestamptz [not null]
+  finished_at timestamptz
+
+  indexes {
+    document_id [name: 'idx_sync_runs_doc_id']
+  }
+}
+
+Table rag.chunks {
+  id uuid [pk]
+  text text [not null]
+  document_id varchar(255) [not null]
+
+  indexes {
+    document_id [name: 'chunk_doc_id']
+  }
+}
+
+Table rag.vector_nodes {
+  id uuid [pk]
+  parent_id uuid
+  children_count integer [not null, default: 0]
+  embedding vector(1024) [not null] // Тип pgvector
+
+  indexes {
+    embedding [name: 'embedding_idx', type: hnsw] // postgresql_ops: vector_cosine_ops
+  }
+}
+
+Table rag.vector_chunk_association {
+  vector_node_id uuid
+  chunk_id uuid
+  position integer [not null, default: 0]
+
+  indexes {
+    (vector_node_id, chunk_id) [pk]
+    chunk_id [name: 'idx_vca_chunk_id']
+  }
+}
+
+Ref: rag.vector_nodes.parent_id > rag.vector_nodes.id [delete: set null]
+Ref: rag.vector_chunk_association.vector_node_id > rag.vector_nodes.id [delete: cascade]
+Ref: rag.vector_chunk_association.chunk_id > rag.chunks.id [delete: cascade]
