@@ -1,0 +1,5 @@
+{ "action": "update",
+  "source_system": "sharepoint",
+  "title": "UPDATED Policy", "raw_content": "Updated content",
+  "last_updated": "2026-10-28T11:00:00Z",
+  "acl": { "allowed_groups": ["devs", "hr", "managers"] } }

@@ -1,0 +1,3 @@
+{ "title": "Valid Policy",
+  "allowed_groups": ["devs", "hr"]
+}

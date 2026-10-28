@@ -1,0 +1,6 @@
+{ "action": "create",
+  "source_system": "sharepoint",
+  "title": "Empty Doc",
+  "raw_content": "", "last_updated": "2026-10-28T10:00:00Z",
+  "acl": { "allowed_groups": ["devs"] }
+}
