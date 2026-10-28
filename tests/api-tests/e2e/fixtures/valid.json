@@ -1,0 +1,7 @@
+{ "action": "create",
+  "source_system": "sharepoint",
+  "title": "Valid Policy",
+  "raw_content": "Valid content",
+  "last_updated": "2026-10-28T10:00:00Z",
+  "acl": { "allowed_groups": ["devs", "hr"] }
+}

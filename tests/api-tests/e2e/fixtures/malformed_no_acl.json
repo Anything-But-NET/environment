@@ -1,0 +1,6 @@
+{ "action": "create",
+  "source_system": "sharepoint",
+  "title": "No ACL Doc",
+  "raw_content": "Content",
+  "last_updated": "2026-10-28T10:00:00Z"
+}
