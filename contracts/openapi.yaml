@@ -443,6 +443,7 @@ components:
       type: object
       description: "Triggered on document creation or full text update"
       required:
+        - sync_id
         - document_id
         - action
         - source_system
@@ -452,6 +453,10 @@ components:
         - last_updated
         - acl
       properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
         document_id:
           type: string
         action:
@@ -478,9 +483,14 @@ components:
       type: object
       description: "Triggered when a document is deleted from source"
       required:
+        - sync_id
         - document_id
         - action
       properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
         document_id:
           type: string
         action:
@@ -491,10 +501,15 @@ components:
       type: object
       description: "Triggered when document permissions change without text edits"
       required:
+        - sync_id
         - document_id
         - action
         - acl
       properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
         document_id:
           type: string
         action:

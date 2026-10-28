@@ -10,6 +10,7 @@ services:
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-example}
       DB_NAME: ${DB_NAME:-copilot_db}
+      KAFKA_BROKER: "kafka:9094"
     restart: unless-stopped
     depends_on:
       - db

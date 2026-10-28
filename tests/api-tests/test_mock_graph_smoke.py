@@ -9,6 +9,12 @@ BASE_URL = os.getenv("MOCK_GRAPH_BASE_URL", "http://localhost:8088")
 DRIVE_ID = os.getenv("MOCK_GRAPH_DRIVE_ID", "kb-docs")
 TARGET_GROUP = os.getenv("MOCK_GRAPH_TARGET_GROUP", "eng-backend")
 
+def _is_service_up(base_url: str) -> bool:
+    try:
+        httpx.get(base_url, timeout=0.5)
+        return True
+    except httpx.RequestError:
+        return False
 
 class MockGraphClient:
     """Helper client encapsulating HTTP calls and URL parsing for Mock Graph Server."""
@@ -174,7 +180,10 @@ def graph() -> Iterator[MockGraphClient]:
         assert teardown_resp.status_code == 200, f"Teardown reset failed: {teardown_resp.text}"
         client.close()
 
-
+@pytest.mark.skipif(
+    not _is_service_up(BASE_URL),
+    reason=f"Service is not reachable at {BASE_URL}",
+)
 class TestMockGraphAuthAndDirectory:
     """Step 1: Authentication Contexts & User Directory Queries."""
 
@@ -214,7 +223,10 @@ class TestMockGraphAuthAndDirectory:
         response = graph.list_users(token="user:unknown-principal")
         assert response.status_code == 401
 
-
+@pytest.mark.skipif(
+    not _is_service_up(BASE_URL),
+    reason=f"Service is not reachable at {BASE_URL}",
+)
 class TestMockGraphRbacAndFiles:
     """Steps 2 & 3: Folder RBAC & File Metadata/Content Access."""
 
@@ -269,7 +281,10 @@ class TestMockGraphRbacAndFiles:
         )
         assert response.status_code == 404
 
-
+@pytest.mark.skipif(
+    not _is_service_up(BASE_URL),
+    reason=f"Service is not reachable at {BASE_URL}",
+)
 def test_e2e_dynamic_group_access_and_delta_sync(graph: MockGraphClient):
     """
     Steps 4 & 5 Full E2E Flow:

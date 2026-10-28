@@ -17,6 +17,7 @@ class TestKafkaEventsContract:
     @pytest.mark.parametrize("action", ["create", "update"])
     def test_document_upsert_event_contract(self, validate_openapi_schema, action):
         payload = {
+            "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
             "document_id": "doc-456",
             "action": action,
             "source_system": "sharepoint",
@@ -31,6 +32,7 @@ class TestKafkaEventsContract:
 
     def test_document_delete_event_contract(self, validate_openapi_schema):
         payload = {
+            "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
             "document_id": "doc-456",
             "action": "delete",
         }
@@ -39,6 +41,7 @@ class TestKafkaEventsContract:
 
     def test_document_update_acl_event_contract(self, validate_openapi_schema):
         payload = {
+            "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
             "document_id": "doc-456",
             "action": "update_acl",
             "acl": {"allowed_groups": ["Engineering - Backend"]},
@@ -48,6 +51,7 @@ class TestKafkaEventsContract:
 
     def test_invalid_ingestion_event_rejected(self, validate_openapi_schema):
         invalid_payload = {
+            "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
             "document_id": "doc-456",
             "action": "unknown_action",
         }
