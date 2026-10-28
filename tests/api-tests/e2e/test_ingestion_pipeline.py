@@ -8,8 +8,8 @@ from psycopg2.errors import UndefinedTable
 
 KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'localhost:9092')
 KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'rag.documents.ingestion.v1')
-DB_HOST, DB_PORT, DB_NAME = os.getenv('DB_HOST', 'localhost'), os.getenv('DB_PORT', '5432'), os.getenv('DB_NAME', 'rag_db')
-DB_USER, DB_PASS = os.getenv('DB_USER', 'postgres'), os.getenv('DB_PASS', 'postgres')
+DB_HOST, DB_PORT, DB_NAME = os.getenv('DB_HOST', 'localhost'), os.getenv('DB_PORT', '5432'), os.getenv('DB_NAME', 'copilot_db')
+DB_USER, DB_PASS = os.getenv('DB_USER', 'postgres'), os.getenv('DB_PASS', 'example')
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(scope="session")
@@ -23,7 +23,7 @@ def kafka_producer():
         )
         yield producer
         producer.close()
-    except KafkaError:
+    except Exception:
         pytest.skip("Skipped E2E tests: Kafka not available")
 
 @pytest.fixture(scope="session")
@@ -54,6 +54,11 @@ def fetch_document(conn, doc_id):
     with conn.cursor() as cur:
         cur.execute("SELECT document_id, title, allowed_groups FROM document_metadata WHERE document_id = %s", (doc_id,))
         return cur.fetchone()
+
+def count_documents(conn, doc_id):
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM document_metadata WHERE document_id = %s", (doc_id,))
+        return cur.fetchone()[0]
 
 def wait_for_document_in_db(conn, doc_id: str, timeout: int = 15):
     start = time.time()
