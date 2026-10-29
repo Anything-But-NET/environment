@@ -58,6 +58,18 @@ services:
       POSTGRES_DB: ${DB_NAME:-copilot_db}
     volumes:
           - pg_data:/var/lib/postgresql
+  db_vec:
+    image: pgvector/pgvector:pg18-trixie
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${RAG_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${RAG_DB_PASSWORD:-example}
+      POSTGRES_DB: ${RAG_DB_NAME:-copilot_db}
+    volumes:
+          - pg_vec_data:/var/lib/postgresql
   kafka:
       image: apache/kafka:latest
       container_name: kafka
@@ -83,3 +95,4 @@ services:
 volumes:
   pg_data:    
   kafka_data:
+  pg_vec_data:
