@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package vectorizer;
+
+service MarkdownVectorizer {
+  rpc VectorizeQuery (QueryRequest) returns (QueryResponse);
+  rpc VectorizeTree (TreeRequest) returns (TreeResponse);
+}
+
+message QueryRequest {
+  string query = 1;
+}
+
+message QueryResponse {
+  bytes embedding = 1;
+}
+
+message FlatNodeInput {
+  string name = 1;
+  int32 level = 2;
+  string content = 3;
+  int32 first_edge_idx = 4; 
+  int32 edge_count = 5;
+}
+
+message TreeRequest {
+  repeated FlatNodeInput nodes = 1;
+  repeated int32 child_indices = 2;
+}
+
+message VectorizedChunk {
+  string text = 1;
+  bytes embedding = 2;
+}
+
+message FlatNodeOutput {
+  bytes embedding = 1;
+  repeated VectorizedChunk content = 2;
+}
+
+message TreeResponse {
+  repeated FlatNodeOutput nodes = 1;
+}
