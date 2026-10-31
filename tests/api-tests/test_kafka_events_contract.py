@@ -107,3 +107,35 @@ class TestKafkaEventsContract:
         validate_openapi_schema(payload, "KafkaFactParsedEvent")
         # Contract business rule: conditions MUST be sorted alphabetically
         assert payload["conditions"] == sorted(payload["conditions"])
+
+    # ------------------------------------------------------------------------
+    # 4. Sync Status Event (rag.sync.status.v1)
+    # ------------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("status", "error_message"),
+        [
+            ("IN_PROGRESS", None),
+            ("FAILED_FETCH", "SharePoint API connection timeout"),
+            ("FAILED_PARSE", "Unsupported PDF format"),
+        ],
+    )
+    def test_kafka_sync_status_event_contract(self, validate_openapi_schema, status, error_message):
+        payload = {
+            "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
+            "document_id": "doc-456",
+            "status": status,
+            "error_message": error_message,
+            "timestamp": 1730000000,
+        }
+        validate_openapi_schema(payload, "KafkaSyncStatusEvent")
+
+    def test_invalid_sync_status_rejected(self, validate_openapi_schema):
+        invalid_payload = {
+            "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
+            "document_id": "doc-456",
+            "status": "UNKNOWN_CRITICAL_ERROR",  # Not in the enum
+            "timestamp": 1730000000,
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(invalid_payload, "KafkaSyncStatusEvent")
