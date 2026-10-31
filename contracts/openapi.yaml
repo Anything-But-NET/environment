@@ -327,7 +327,7 @@ components:
           description: Unified correlation/trace ID matching the request.
         status:
           type: string
-          enum: [ANSWER_GENERATED, EMPTY_RETRIEVAL, LOW_CONFIDENCE]
+          enum: [ANSWER_GENERATED, EMPTY_RETRIEVAL, LOW_CONFIDENCE, ERROR]
           description: >
             Execution status of the RAG pipeline. EMPTY_RETRIEVAL indicates no documents
             matched the query/ACL filter; LOW_CONFIDENCE indicates score below threshold.
