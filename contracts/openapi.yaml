@@ -581,3 +581,33 @@ components:
             type: string
           description: "Applicability filters. MUST be sorted alphabetically."
           example: ["contract:b2b", "role:senior"]
+
+    # 4. Sync Status Event (Python -> Java)
+    KafkaSyncStatusEvent:
+      type: object
+      description: "Kafka Topic: rag.sync.status.v1"
+      required:
+        - sync_id
+        - document_id
+        - status
+        - timestamp
+      properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
+        document_id:
+          type: string
+          description: "Source document identifier."
+        status:
+          type: string
+          enum: [IN_PROGRESS, COMPLETED, FAILED_FETCH, FAILED_PARSE, FAILED_STORAGE]
+          description: "Current status of the ingestion process."
+        error_message:
+          type: string
+          nullable: true
+          description: "Detailed error text if the sync failed."
+        timestamp:
+          type: integer
+          format: int64
+          description: "Unix epoch timestamp in seconds."
