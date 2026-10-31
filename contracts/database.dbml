@@ -33,6 +33,29 @@ Table core.document_sync_runs {
   }
 }
 
+Enum core.generation_outcome {
+  SUCCESS
+  FAILURE
+}
+
+Enum core.error_category {
+  VALIDATION_ERROR
+  RETRIEVAL_TIMEOUT
+  VECTOR_DB_UNAVAILABLE
+  LLM_PROVIDER_ERROR
+  INTERNAL_ERROR
+  INTERNAL_CONNECTION_ERROR
+}
+
+Table core.generation_diagnostics {
+  id uuid [pk]
+  query_id varchar(255) [not null]
+  outcome core.generation_outcome [not null]
+  error_category core.error_category
+  confidence_score float
+  created_at timestamptz [not null]
+}
+
 Table rag.chunks {
   id uuid [pk]
   text text [not null]
