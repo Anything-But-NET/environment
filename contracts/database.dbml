@@ -4,12 +4,7 @@ Table core.document_metadata {
   title text
   url text
   last_updated timestamptz
-  allowed_groups "text[]" [not null, default: '{}']
   last_sync_at timestamptz [not null]
-
-  indexes {
-    allowed_groups [type: gin, name: 'idx_document_metadata_allowed_groups']
-  }
 }
 
 Enum sync_status {
@@ -71,9 +66,20 @@ Table rag.vector_nodes {
   parent_id uuid
   children_count integer [not null, default: 0]
   embedding vector(1024) [not null] // Тип pgvector
+  document_id varchar(255) [not null]
 
   indexes {
     embedding [name: 'embedding_idx', type: hnsw] // postgresql_ops: vector_cosine_ops
+  }
+}
+
+Table rag.document {
+  document_id varchar(255) [pk]
+  allowed_groups "text[]" [not null, default: '{}']
+  last_updated timestamptz
+  last_sync_at timestamptz [not null]
+  indexes {
+    allowed_groups [type: gin, name: 'idx_document_metadata_allowed_groups']
   }
 }
 
@@ -89,5 +95,7 @@ Table rag.vector_chunk_association {
 }
 
 Ref: rag.vector_nodes.parent_id > rag.vector_nodes.id [delete: set null]
+Ref: rag.vector_nodes.document_id > rag.document.document_id [delete: cascade]
+Ref: rag.chunks.document_id > rag.document.document_id [delete: cascade]
 Ref: rag.vector_chunk_association.vector_node_id > rag.vector_nodes.id [delete: cascade]
 Ref: rag.vector_chunk_association.chunk_id > rag.chunks.id [delete: cascade]
