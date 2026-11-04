@@ -20,7 +20,9 @@ paths:
       summary: "[Gateway -> Core] Forward user question"
       description: >
         Invoked by the Gateway (Slack/Teams integration) to process an incoming
-        user question through Core orchestration.
+        user question through Core orchestration. Citations in the response are
+        fully enriched by Core: RAG returns only document_id/chunk_id/score, and
+        Core resolves title and url by document_id from its document metadata store.
       operationId: processUserQuestion
       requestBody:
         required: true
@@ -104,7 +106,9 @@ paths:
       summary: "[Core -> RAG] Retrieve context and generate answer"
       description: >
         Invoked by Core after resolving user ACL groups. Performs permission-filtered
-        retrieval and generates a grounded answer with citations.
+        retrieval and generates a grounded answer with lightweight citations
+        (document_id, chunk_id, score only). Core is responsible for enriching
+        them with title and url before responding to the Gateway.
       operationId: generateRagAnswer
       requestBody:
         required: true
@@ -136,9 +140,7 @@ paths:
                     answer: "To get compensation, fill out the reimbursement form..."
                     confidence_score: 0.89
                     citations:
-                      - title: "IT Compensation Guidelines"
-                        url: "https://company.sharepoint.com/docs/it-comp"
-                        document_id: "doc-456"
+                      - document_id: "doc-456"
                         chunk_id: "123e4567-e89b-12d3-a456-426614174000"
                         score: 0.95
                 EmptyResult:
@@ -157,9 +159,7 @@ paths:
                     answer: "Based on partial records, compensation might require manager approval..."
                     confidence_score: 0.35
                     citations:
-                      - title: "General Expense Policy"
-                        url: "https://company.sharepoint.com/docs/expenses"
-                        document_id: "doc-789"
+                      - document_id: "doc-789"
                         chunk_id: "987e6543-e21b-12d3-a456-426614174999"
                         score: 0.42
         '400':
@@ -270,6 +270,7 @@ components:
           description: Final formatted message to display to the user in Slack/Teams.
         citations:
           type: array
+          description: Citations fully enriched by Core with title and url.
           items:
             $ref: '#/components/schemas/Citation'
 
@@ -345,12 +346,40 @@ components:
             ANSWER_GENERATED, Core escalates to a human expert.
         citations:
           type: array
-          description: List of retrieved source chunks supporting the answer (empty if none found).
+          description: >
+            Lightweight references to retrieved chunks (empty if none found).
+            Contains NO display metadata (title/url) - Core enriches them
+            before returning the response to the Gateway.
           items:
-            $ref: '#/components/schemas/Citation'
+            $ref: '#/components/schemas/RagCitation'
+
+    RagCitation:
+      type: object
+      description: Minimal chunk reference returned by RAG. Enriched by Core into Citation.
+      required:
+        - document_id
+        - chunk_id
+        - score
+      properties:
+        document_id:
+          type: string
+          description: Unique identifier of the parent document.
+        chunk_id:
+          type: string
+          format: uuid
+          description: Unique UUID of the retrieved text chunk.
+        score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Relevance/similarity score of the retrieved chunk.
 
     Citation:
       type: object
+      description: >
+        Fully enriched citation returned to the Gateway. Built by Core from
+        RagCitation plus title/url resolved by document_id.
       required:
         - title
         - url
