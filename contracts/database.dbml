@@ -56,6 +56,12 @@ Table core.generation_diagnostics {
   created_at timestamptz [not null]
 }
 
+Table core.users {
+    email varchar(255) [pk]
+    allowed_groups "text[]" [not null, default: '{}']
+    last_sync_at timestamptz [not null]
+}
+
 Table rag.chunks {
   id uuid [pk]
   text text [not null]

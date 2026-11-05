@@ -8,6 +8,8 @@ class TestKafkaEventsContract:
     1. rag.documents.ingestion.v1 (DocumentUpsertEvent, DocumentDeleteEvent, DocumentUpdateAclEvent)
     2. rag.chat.feedback.v1 (KafkaFeedbackEvent)
     3. rag.facts.parsed.v1 (KafkaFactParsedEvent)
+    4. rag.sync.status.v1 (KafkaSyncStatusEvent)
+    5. rag.users.acl.v1 (KafkaUserAclUpsert)
     """
 
     # ------------------------------------------------------------------------
@@ -35,6 +37,7 @@ class TestKafkaEventsContract:
             "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
             "document_id": "doc-456",
             "action": "delete",
+            "last_updated": "2026-10-26T16:00:00Z",
         }
         validate_openapi_schema(payload, "DocumentDeleteEvent")
         validate_openapi_schema(payload, "KafkaNewFileDataEvent")
@@ -44,6 +47,7 @@ class TestKafkaEventsContract:
             "sync_id": "547f7ca3-1eaa-44c6-91ed-bd8f8e997cf8",
             "document_id": "doc-456",
             "action": "update_acl",
+            "last_updated": "2026-10-26T16:00:00Z",
             "acl": {"allowed_groups": ["Engineering - Backend"]},
         }
         validate_openapi_schema(payload, "DocumentUpdateAclEvent")
@@ -139,3 +143,69 @@ class TestKafkaEventsContract:
         }
         with pytest.raises(jsonschema.ValidationError):
             validate_openapi_schema(invalid_payload, "KafkaSyncStatusEvent")
+
+    # ------------------------------------------------------------------------
+    # 5. User ACL Upsert Event (rag.users.acl.v1)
+    # ------------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "allowed_groups",
+        [
+            ["Engineering", "All Staff"],
+            ["oleh.pona@company.com"],
+        ],
+    )
+    def test_kafka_user_acl_upsert_event_contract(self, validate_openapi_schema, allowed_groups):
+        payload = {
+            "email": "oleh.pona@company.com",
+            "last_updated": "2026-11-05T10:00:00Z",
+            "acl": {"allowed_groups": allowed_groups},
+        }
+        validate_openapi_schema(payload, "KafkaUserAclUpsert")
+
+    @pytest.mark.parametrize("missing_field", ["email", "last_updated", "acl"])
+    def test_invalid_user_acl_upsert_missing_required_fields(self, validate_openapi_schema, missing_field):
+        payload = {
+            "email": "oleh.pona@company.com",
+            "last_updated": "2026-11-05T10:00:00Z",
+            "acl": {"allowed_groups": ["Engineering"]},
+        }
+        del payload[missing_field]
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(payload, "KafkaUserAclUpsert")
+
+    def test_invalid_user_acl_upsert_email_format(self, validate_openapi_schema):
+        payload = {
+            "email": "not-a-valid-email",
+            "last_updated": "2026-11-05T10:00:00Z",
+            "acl": {"allowed_groups": ["Engineering"]},
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(payload, "KafkaUserAclUpsert")
+
+    def test_invalid_user_acl_upsert_last_updated_format(self, validate_openapi_schema):
+        payload = {
+            "email": "oleh.pona@company.com",
+            "last_updated": "not-a-datetime",
+            "acl": {"allowed_groups": ["Engineering"]},
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(payload, "KafkaUserAclUpsert")
+
+    @pytest.mark.parametrize(
+        "invalid_acl",
+        [
+            {"allowed_groups": []},  # minItems: 1 violation
+            {"allowed_groups": [123]},  # items must be string
+            {},  # missing allowed_groups
+            "Engineering",  # not an object
+        ],
+    )
+    def test_invalid_user_acl_upsert_invalid_acl(self, validate_openapi_schema, invalid_acl):
+        payload = {
+            "email": "oleh.pona@company.com",
+            "last_updated": "2026-11-05T10:00:00Z",
+            "acl": invalid_acl,
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(payload, "KafkaUserAclUpsert")
