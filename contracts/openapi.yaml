@@ -4,7 +4,7 @@ info:
   description: >
     OpenAPI contracts for inter-service communication (Gateway, Core, RAG)
     and Kafka event payload specifications.
-  version: 1.0.0
+  version: 1.0.1
 
 tags:
   - name: GatewayToCore
@@ -514,6 +514,7 @@ components:
       required:
         - sync_id
         - document_id
+        - last_updated
         - action
       properties:
         sync_id:
@@ -525,6 +526,9 @@ components:
         action:
           type: string
           enum: [delete]
+        last_updated:
+          type: string
+          format: date-time
 
     DocumentUpdateAclEvent:
       type: object
@@ -533,6 +537,7 @@ components:
         - sync_id
         - document_id
         - action
+        - last_updated
         - acl
       properties:
         sync_id:
@@ -544,6 +549,9 @@ components:
         action:
           type: string
           enum: [update_acl]
+        last_updated:
+          type: string
+          format: date-time
         acl:
           $ref: '#/components/schemas/AclPayload'
 
@@ -640,3 +648,23 @@ components:
           type: integer
           format: int64
           description: "Unix epoch timestamp in seconds."
+
+    # 5. User ACL Upsert Event
+    KafkaUserAclUpsert:
+      type: object
+      description: "Kafka Topic: rag.users.acl.v1"
+      required:
+        - email
+        - last_updated
+        - acl
+      properties: 
+        email:
+          type: string
+          format: email
+          description: "User email"
+        last_updated:
+          type: string
+          format: date-time
+        acl:
+          $ref: '#/components/schemas/AclPayload'
+
