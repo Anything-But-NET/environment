@@ -7,7 +7,7 @@ Table core.document_metadata {
   last_sync_at timestamptz [not null]
 }
 
-Enum sync_status {
+Enum core.sync_status {
   IN_PROGRESS
   COMPLETED
   FAILED_FETCH
@@ -15,10 +15,33 @@ Enum sync_status {
   FAILED_STORAGE
 }
 
+Enum core.dashboard_operator_authority {
+  LOGS
+  METADATA
+  USERS
+  OPERATORS
+}
+
+Enum core.dashboard_operator_status {
+  ACTIVE
+  BLOCKED
+}
+
+Table core.dashboard_operators {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  authorities "core.dashboard_operator_authority[]" [not null, default: '{}']
+  password_hash text [not null]
+  status core.dashboard_operator_status [not null, default: 'ACTIVE']
+  last_refreshed_at timestamptz [not null, default: `now()`]
+  last_updated_at timestamptz [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
 Table core.document_sync_runs {
   id uuid [pk]
   document_id varchar(255) [not null]
-  status sync_status [not null, default: 'IN_PROGRESS']
+  status core.sync_status [not null, default: 'IN_PROGRESS']
   error_message text
   started_at timestamptz [not null]
   finished_at timestamptz
@@ -49,12 +72,18 @@ Table core.generation_diagnostics {
   error_category core.error_category
   confidence_score float
   created_at timestamptz [not null]
+
+  indexes {
+    query_id [name: 'idx_gen_diag_query_id']
+    created_at [name: 'idx_gen_diag_created_at']
+  }
 }
 
 Table core.users {
-    email varchar(255) [pk]
-    allowed_groups "text[]" [not null, default: '{}']
-    last_sync_at timestamptz [not null]
+  email varchar(255) [pk]
+  allowed_groups "text[]" [not null, default: '{}']
+  last_updated timestamptz
+  last_sync_at timestamptz [not null]
 }
 
 Table rag.chunks {
@@ -84,6 +113,7 @@ Table rag.document {
   allowed_groups "text[]" [not null, default: '{}']
   last_updated timestamptz
   last_sync_at timestamptz [not null]
+
   indexes {
     allowed_groups [type: gin, name: 'idx_document_metadata_allowed_groups']
   }
