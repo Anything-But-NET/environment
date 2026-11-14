@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: Shared Contract Schemas
+  version: 1.0.0
+  description: >
+    Single source of truth for schemas and enums shared across REST APIs
+    (openapi.yaml) and Kafka event payloads (openapi-kafka.yaml).
+paths: {}
+
+components:
+  schemas:
+    AclPayload:
+      type: object
+      required:
+        - allowed_groups
+      properties:
+        allowed_groups:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: >
+            List of access control groups. Individual user email is included
+            as a single-element group identifier.
+
+    SyncStatus:
+      type: string
+      enum:
+        - IN_PROGRESS
+        - COMPLETED
+        - FAILED_FETCH
+        - FAILED_PARSE
+        - FAILED_STORAGE
+      description: Ingestion sync run status (matches core.sync_status).
+
+    GenerationOutcome:
+      type: string
+      enum:
+        - SUCCESS
+        - FAILURE
+      description: Generation outcome persisted in core.generation_diagnostics.
+
+    RagErrorStatus:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - RETRIEVAL_TIMEOUT
+        - VECTOR_DB_UNAVAILABLE
+        - LLM_PROVIDER_ERROR
+        - INTERNAL_ERROR
+      description: Machine-readable error status returned by the RAG service.
+
+    ErrorCategory:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - RETRIEVAL_TIMEOUT
+        - VECTOR_DB_UNAVAILABLE
+        - LLM_PROVIDER_ERROR
+        - INTERNAL_ERROR
+        - INTERNAL_CONNECTION_ERROR
+      description: Diagnostic error category persisted by Core (matches core.error_category).
+
+    OperatorAuthority:
+      type: string
+      enum:
+        - LOGS
+        - METADATA
+        - USERS
+        - OPERATORS
+      description: Dashboard operator permission (matches core.dashboard_operator_authority).
+
+    OperatorStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - BLOCKED
+      description: Dashboard operator account status (matches core.dashboard_operator_status).

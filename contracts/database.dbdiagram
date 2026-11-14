@@ -1,0 +1,146 @@
+{
+  "version": "3.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "currentViewName": null,
+  "defaultView": {
+    "detailLevel": "All",
+    "relationshipMode": "All",
+    "tablePositions": [
+      {
+        "name": "document_metadata",
+        "schemaName": "core",
+        "x": 710.349609375,
+        "y": 12
+      },
+      {
+        "name": "dashboard_operators",
+        "schemaName": "core",
+        "x": 12,
+        "y": 322
+      },
+      {
+        "name": "document_sync_runs",
+        "schemaName": "core",
+        "x": 350.24365234375,
+        "y": 12
+      },
+      {
+        "name": "generation_diagnostics",
+        "schemaName": "core",
+        "x": 1070.5244140625,
+        "y": 12
+      },
+      {
+        "name": "users",
+        "schemaName": "core",
+        "x": 12,
+        "y": 12
+      },
+      {
+        "name": "chunks",
+        "schemaName": "rag",
+        "x": 510.24365234375,
+        "y": 922
+      },
+      {
+        "name": "vector_nodes",
+        "schemaName": "rag",
+        "x": 510.24365234375,
+        "y": 684
+      },
+      {
+        "name": "document",
+        "schemaName": "rag",
+        "x": 12,
+        "y": 684
+      },
+      {
+        "name": "vector_chunk_association",
+        "schemaName": "rag",
+        "x": 1070.41845703125,
+        "y": 684
+      }
+    ],
+    "tableGroupCollapseStates": [],
+    "stickyNoteLayouts": [],
+    "referencePaths": [
+      {
+        "firstFieldNames": [
+          "parent_id"
+        ],
+        "firstTableName": "vector_nodes",
+        "firstSchemaName": "rag",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "vector_nodes",
+        "secondSchemaName": "rag",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "document_id"
+        ],
+        "firstTableName": "vector_nodes",
+        "firstSchemaName": "rag",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "document_id"
+        ],
+        "secondTableName": "document",
+        "secondSchemaName": "rag",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "document_id"
+        ],
+        "firstTableName": "chunks",
+        "firstSchemaName": "rag",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "document_id"
+        ],
+        "secondTableName": "document",
+        "secondSchemaName": "rag",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "vector_node_id"
+        ],
+        "firstTableName": "vector_chunk_association",
+        "firstSchemaName": "rag",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "vector_nodes",
+        "secondSchemaName": "rag",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "chunk_id"
+        ],
+        "firstTableName": "vector_chunk_association",
+        "firstSchemaName": "rag",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "chunks",
+        "secondSchemaName": "rag",
+        "secondRelation": "1",
+        "checkPoints": []
+      }
+    ]
+  },
+  "views": {}
+}
