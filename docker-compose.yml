@@ -38,6 +38,7 @@ services:
       VECTORIZER_GRPC_TARGET: "host.docker.internal:50051"
     command: >
       sh -c 'export DATABASE_URL="postgresql://$$USER:$$PASS@db:5432/$$DB" && 
+      uv run alembic upgrade head &&
       exec uv run python -m python_service.main'
     restart: unless-stopped
     depends_on:
