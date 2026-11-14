@@ -5,8 +5,7 @@ x-vars:
 
 services:
   java-service:
-    build:
-      context: ../java-service
+    image: ghcr.io/anything-but-net/java-service:main
     ports:
       - "8080:8080"
     environment:
@@ -16,6 +15,7 @@ services:
       DB_PASSWORD: *db_pass
       DB_NAME: *db_name
       KAFKA_BROKER: "kafka:9094"
+      RAG_API_URL: "http://python-service:8000"
     restart: unless-stopped
     depends_on:
       db:
@@ -24,8 +24,7 @@ services:
         condition: service_healthy
 
   python-service:
-    build:
-      context: ../python-service
+    image: ghcr.io/anything-but-net/python-service:main
     ports:
       - "8000:8000"
     extra_hosts:
@@ -36,6 +35,9 @@ services:
       DB: *db_name
       KAFKA_BROKER: "kafka:9094"
       VECTORIZER_GRPC_TARGET: "host.docker.internal:50051"
+      LLM_BASE_URL: "https://openrouter.ai/api/v1"
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: "google/gemini-3.5-flash-lite"
     command: >
       sh -c 'export DATABASE_URL="postgresql://$$USER:$$PASS@db:5432/$$DB" && 
       uv run alembic upgrade head &&
@@ -48,22 +50,24 @@ services:
         condition: service_healthy
 
   webui-service:
-    build:
-      context: ../webui-service
+    image: ghcr.io/anything-but-net/webui-service:main
     ports:
       - "3000:3000"
+    environment:
+      CORE_API_URL: "http://java-service:8080"
     depends_on:
       - java-service
-      - python-service
-      - net-service
     restart: unless-stopped
 
   net-service:
-    build:
-      context: ../.net-service
+    image: ghcr.io/anything-but-net/net-service:main
     ports:
       - "5224:8080"
     restart: unless-stopped
+    environment:
+      Slack__BotToken: ${SLACK_TOKEN}
+      JavaCore__ChatApiUrl: http://java-service:8080/api/v1/chat/question
+      Kafka__Host: "kafka:9094"
     depends_on:
       kafka:
         condition: service_healthy
