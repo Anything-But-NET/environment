@@ -60,7 +60,8 @@ services:
     restart: unless-stopped
 
   net-service:
-    image: ghcr.io/anything-but-net/net-service:main
+    build:
+      context: ../.net-service
     ports:
       - "5224:8080"
     restart: unless-stopped
@@ -68,6 +69,10 @@ services:
       Slack__BotToken: ${SLACK_TOKEN}
       JavaCore__ChatApiUrl: http://java-service:8080/api/v1/chat/question
       Kafka__Host: "kafka:9094"
+      GraphApi__BaseUrl: ${GRAPH_BASE_URL:-http://mock-graph:8080/v1.0}
+      GraphApi__TenantId: ${GRAPH_TENANT_ID:-}
+      GraphApi__ClientId: ${GRAPH_CLIENT_ID:-}
+      GraphApi__ClientSecret: ${GRAPH_CLIENT_SECRET:-}
     depends_on:
       kafka:
         condition: service_healthy
