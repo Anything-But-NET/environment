@@ -60,8 +60,7 @@ services:
     restart: unless-stopped
 
   net-service:
-    build:
-      image: ghcr.io/anything-but-net/net-service:main
+    image: ghcr.io/anything-but-net/net-service:main
     ports:
       - "5224:8080"
     restart: unless-stopped
