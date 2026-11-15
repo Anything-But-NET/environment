@@ -61,7 +61,7 @@ services:
 
   net-service:
     build:
-      context: ../.net-service
+      image: ghcr.io/anything-but-net/net-service:main
     ports:
       - "5224:8080"
     restart: unless-stopped
