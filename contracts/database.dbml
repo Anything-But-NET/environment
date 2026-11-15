@@ -142,3 +142,11 @@ Table rag.prompt_versions {
   metadata jsonb [not null, default: '{}']
   created_at timestamptz [not null, default: `now()`]
 }
+
+Table rag.evaluation_runs {
+  id uuid [pk]
+  prompt_version_id uuid [not null, ref: > rag.prompt_versions.id]
+  status varchar [not null, default: 'pending']
+  metadata jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+}
