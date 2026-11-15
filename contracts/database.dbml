@@ -135,3 +135,10 @@ Ref: rag.vector_nodes.document_id > rag.document.document_id [delete: cascade]
 Ref: rag.chunks.document_id > rag.document.document_id [delete: cascade]
 Ref: rag.vector_chunk_association.vector_node_id > rag.vector_nodes.id [delete: cascade]
 Ref: rag.vector_chunk_association.chunk_id > rag.chunks.id [delete: cascade]
+
+Table rag.prompt_versions {
+  id uuid [pk]
+  prompt_text text [not null]
+  metadata jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+}
