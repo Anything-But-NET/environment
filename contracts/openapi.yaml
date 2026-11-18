@@ -256,6 +256,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GenerationError' }
+        '503':
+          description: Service Unavailable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
 
   /api/v1/rag/evaluations/runs/{run_id}:
     get:
@@ -275,6 +280,16 @@ paths:
               schema: { $ref: '#/components/schemas/EvaluationRunResponse' }
         '404':
           description: Evaluation run not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '422':
+          description: Unprocessable Entity (invalid run_id UUID).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '500':
+          description: Internal Server Error.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GenerationError' }

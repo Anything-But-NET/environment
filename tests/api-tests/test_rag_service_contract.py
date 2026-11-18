@@ -274,3 +274,14 @@ class TestRagServiceLiveContract:
         body = response.json()
         validate_openapi_schema(body, "GenerationError")
         assert body["status"] == "VALIDATION_ERROR"
+
+    def test_get_non_existent_evaluation_run_returns_404_error_contract(self, validate_openapi_schema):
+        non_existent_id = "00000000-0000-0000-0000-000000000099"
+        response = httpx.get(
+            f"{RAG_BASE_URL}/api/v1/rag/evaluations/runs/{non_existent_id}",
+            timeout=5.0,
+        )
+        assert response.status_code == 404
+        body = response.json()
+        validate_openapi_schema(body, "GenerationError")
+
