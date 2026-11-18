@@ -126,6 +126,116 @@ class TestRagContractSchemas:
         with pytest.raises(jsonschema.ValidationError):
             validate_openapi_schema(invalid_payload, "GenerationError")
 
+    def test_valid_evaluation_run_create_request(self, validate_openapi_schema):
+        payload = {
+            "prompt_version_id": "123e4567-e89b-12d3-a456-426614174000",
+            "dataset": {
+                "dataset_id": "mvp-golden-set",
+                "dataset_version": "v1.0.0",
+                "dataset_path": "datasets/golden_set_v1.json",
+                "known_limitations": ["Small sample of conflicting source cases"],
+            },
+            "thresholds": {
+                "decision_status": "PROPOSED",
+                "relevance_min_score": 0.75,
+                "factual_grounding_min_score": 0.85,
+                "citation_correctness_min_score": 1.0,
+                "target_pass_rate": 0.85,
+            },
+        }
+        validate_openapi_schema(payload, "EvaluationRunCreateRequest")
+
+    def test_invalid_evaluation_thresholds_rejected(self, validate_openapi_schema):
+        invalid_payload = {
+            "prompt_version_id": "123e4567-e89b-12d3-a456-426614174000",
+            "dataset": {"dataset_id": "mvp-golden-set", "dataset_version": "v1.0.0"},
+            "thresholds": {
+                "decision_status": "SILENTLY_ACCEPTED",
+                "relevance_min_score": 1.5,
+                "factual_grounding_min_score": 0.85,
+                "citation_correctness_min_score": 1.0,
+                "target_pass_rate": 0.85,
+            },
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(invalid_payload, "EvaluationRunCreateRequest")
+
+    def test_valid_evaluation_run_response(self, validate_openapi_schema):
+        check = {
+            "applicable": True,
+            "passed": True,
+            "score": 0.9,
+            "threshold": 0.75,
+            "calculation_method": "token_overlap_v1",
+            "details": None,
+        }
+        payload = {
+            "id": "123e4567-e89b-12d3-a456-426614174001",
+            "prompt_version_id": "123e4567-e89b-12d3-a456-426614174000",
+            "status": "completed",
+            "created_at": "2026-11-18T18:00:00Z",
+            "metadata": {
+                "dataset": {
+                    "dataset_id": "mvp-golden-set",
+                    "dataset_version": "v1.0.0",
+                    "dataset_path": None,
+                    "known_limitations": [],
+                },
+                "thresholds": {
+                    "decision_status": "PROPOSED",
+                    "relevance_min_score": 0.75,
+                    "factual_grounding_min_score": 0.85,
+                    "citation_correctness_min_score": 1.0,
+                    "target_pass_rate": 0.85,
+                },
+                "total_cases": 1,
+                "passed_cases": 1,
+                "failed_cases": 0,
+                "overall_pass_rate": 1.0,
+                "dimension_summaries": [
+                    {
+                        "dimension": "relevance",
+                        "evaluated_cases_count": 1,
+                        "passed_cases_count": 1,
+                        "observed_pass_rate": 1.0,
+                        "observed_mean_score": 0.9,
+                        "proposed_threshold_score": 0.75,
+                        "proposed_target_pass_rate": 0.85,
+                        "threshold_decision_status": "PROPOSED",
+                        "meets_proposed_threshold": True,
+                    }
+                ],
+                "followup_jira_issues": [],
+                "case_results": [
+                    {
+                        "case_id": "GS-001",
+                        "query": "How does CI pipeline run?",
+                        "expected_outcome": "ANSWER_EXPECTED",
+                        "expected_document_ids": ["doc-ci-01"],
+                        "actual_status": "ANSWER_GENERATED",
+                        "actual_answer": "CI runs on GitHub Actions.",
+                        "actual_confidence_score": 0.92,
+                        "actual_citations": [
+                            {
+                                "document_id": "doc-ci-01",
+                                "chunk_id": "123e4567-e89b-12d3-a456-426614174099",
+                                "score": 0.92,
+                            }
+                        ],
+                        "passed": True,
+                        "checks": {
+                            "relevance": check,
+                            "factual_grounding": check,
+                            "citation_correctness": check,
+                            "safe_no_answer": {**check, "applicable": False, "score": 1.0, "threshold": 1.0},
+                        },
+                        "failure_reasons": [],
+                    }
+                ],
+            },
+        }
+        validate_openapi_schema(payload, "EvaluationRunResponse")
+
 
 @pytest.mark.skipif(
     not _is_service_up(RAG_BASE_URL),
