@@ -8,7 +8,7 @@ import pytest
 
 CORE_BASE_URL = os.getenv("CORE_BASE_URL", "http://localhost:8080")
 NET_BASE_URL = os.getenv("NET_BASE_URL", "http://localhost:5224")
-RAG_BASE_URL = os.getenv("RAG_BASE_URL", "http://localhost:8000")
+TEST_USER_EMAIL = os.getenv("TEST_USER_EMAIL", "alice@contoso-mock.onmicrosoft.com")
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
@@ -102,19 +102,15 @@ def test_net_service_slack_rejects_empty_question_with_safe_fallback(validate_op
 def test_net_service_slack_accepts_valid_event_and_returns_fast_ack():
     _require_service(f"{NET_BASE_URL}/api/documents/Doc", "net-service")
 
+    challenge = f"challenge-{uuid.uuid4()}"
     payload = {
-        "type": "event_callback",
-        "event_id": f"slack-e2e-{uuid.uuid4()}",
-        "event": {
-            "type": "app_mention",
-            "user": "U12345",
-            "channel": "C12345",
-            "text": "<@BOT_ID> What is our vacation policy?",
-        },
+        "type": "url_verification",
+        "challenge": challenge,
     }
 
     response = httpx.post(f"{NET_BASE_URL}/api/slack/events", json=payload, timeout=5.0)
     assert response.status_code == 200
+    assert response.json() == {"challenge": challenge}
 
 
 @pytest.mark.e2e
@@ -128,7 +124,7 @@ def test_chat_retry_does_not_create_duplicate_diagnostics_or_escalations(
     request_payload = {
         "query_id": query_id,
         "channel": "slack",
-        "user_email": "vitalii.peleshko.shi.2025@lpnu.ua",
+        "user_email": TEST_USER_EMAIL,
         "query": "What is the reimbursement process for home office hardware?",
     }
     validate_openapi_schema(request_payload, "UserQuestionRequest")
@@ -176,7 +172,7 @@ def test_chat_validation_error_returns_safe_fallback(validate_openapi_schema):
     invalid_payload = {
         "query_id": f"e2e-chat-invalid-{uuid.uuid4()}",
         "channel": "slack",
-        "user_email": "vitalii.peleshko.shi.2025@lpnu.ua",
+        "user_email": TEST_USER_EMAIL,
         "query": "",
     }
 
