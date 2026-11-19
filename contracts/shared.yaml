@@ -86,93 +86,93 @@ components:
       description: Business question outcome persisted in core.generation_diagnostics.
 
     EscalationResolutionStatus:
-        type: string
-        enum:
-          - PENDING
-          - IN_PROGRESS
-          - RESOLVED
-          - CLOSED
-          - CANCELLED
-        description: Lifecycle status of an escalated support ticket.
+      type: string
+      enum:
+        - PENDING
+        - IN_PROGRESS
+        - RESOLVED
+        - CLOSED
+        - CANCELLED
+      description: Lifecycle status of an escalated support ticket.
 
     QuestionOutcomeReasonCode:
-        type: string
-        enum:
-          - LOW_CONFIDENCE
-          - EMPTY_RETRIEVAL
-          - AUTO_FALLBACK
-          - USER_ESCALATED
-          - PROVIDER_UNAVAILABLE
-        description: Non-sensitive reason code explaining a safe no-answer or escalation outcome.
+      type: string
+      enum:
+        - LOW_CONFIDENCE
+        - EMPTY_RETRIEVAL
+        - AUTO_FALLBACK
+        - USER_ESCALATED
+        - PROVIDER_UNAVAILABLE
+      description: Non-sensitive reason code explaining a safe no-answer or escalation outcome.
 
     QuestionOutcomeEvent:
-        type: object
-        additionalProperties: false
-        description: >
-          Structured MVP analytics contract for question outcomes persisted in
-          core.generation_diagnostics (deduplicated by query_id; ESCALATED
-          supersedes SAFE_NO_ANSWER; escalations link 1:1 via query_id).
-          Produced by java-service and consumed in aggregated form by
-          webui-service. Must not contain raw question/answer text, document
-          content, or user PII.
-        required:
-          - schema_version
-          - query_id
-          - timestamp
-          - outcome
-          - escalation_id
-        properties:
-          schema_version:
-            type: string
-            enum:
-              - "1.0"
-            description: Contract schema version.
-          query_id:
-            type: string
-            minLength: 1
-            maxLength: 255
-            description: Single stable identifier per question flow (maps to correlation_id; supports UUID or Slack event_id).
-          timestamp:
-            type: string
-            format: date-time
-            description: UTC ISO 8601 timestamp when the outcome was recorded.
-          outcome:
-            $ref: '#/components/schemas/QuestionOutcome'
-          escalation_id:
-            type: string
-            nullable: true
-            minLength: 1
-            maxLength: 255
-            description: Escalation/ticket identifier (null for ANSWERED/SAFE_NO_ANSWER; populated 1:1 via query_id when escalated).
-          resolution_status:
-            allOf:
-              - $ref: '#/components/schemas/EscalationResolutionStatus'
-            nullable: true
-            description: Ticket resolution lifecycle status (null for non-escalated questions).
-          reason_code:
-            allOf:
-              - $ref: '#/components/schemas/QuestionOutcomeReasonCode'
-            nullable: true
-            description: Optional non-sensitive machine-readable reason code.
-          confidence_score:
-            type: number
-            format: float
-            minimum: 0.0
-            maximum: 1.0
-            nullable: true
-            description: Optional RAG confidence score in range [0.0, 1.0].
-          prompt_version_id:
-            type: string
-            format: uuid
-            nullable: true
-            description: Optional deterministic prompt version UUID from rag.prompt_versions.
-        example:
-          schema_version: "1.0"
-          query_id: "Ev0CHR36TQHZ"
-          timestamp: "2026-11-19T14:25:03.102Z"
-          outcome: "SAFE_NO_ANSWER"
-          escalation_id: null
-          resolution_status: null
-          reason_code: "LOW_CONFIDENCE"
-          confidence_score: 0.31
-          prompt_version_id: "550e8400-e29b-41d4-a716-446655440000"
+      type: object
+      additionalProperties: false
+      description: >
+        Structured MVP analytics contract for question outcomes persisted in
+        core.generation_diagnostics (deduplicated by query_id; ESCALATED
+        supersedes SAFE_NO_ANSWER; escalations link 1:1 via query_id).
+        Produced by java-service and consumed in aggregated form by
+        webui-service. Must not contain raw question/answer text, document
+        content, or user PII.
+      required:
+        - schema_version
+        - query_id
+        - timestamp
+        - outcome
+        - escalation_id
+      properties:
+        schema_version:
+          type: string
+          enum:
+            - "1.0"
+          description: Contract schema version.
+        query_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Single stable identifier per question flow (maps to correlation_id; supports UUID or Slack event_id).
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC ISO 8601 timestamp when the outcome was recorded.
+        outcome:
+          $ref: '#/components/schemas/QuestionOutcome'
+        escalation_id:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+          description: Escalation/ticket identifier (null for ANSWERED/SAFE_NO_ANSWER; populated 1:1 via query_id when escalated).
+        resolution_status:
+          allOf:
+            - $ref: '#/components/schemas/EscalationResolutionStatus'
+          nullable: true
+          description: Ticket resolution lifecycle status (null for non-escalated questions).
+        reason_code:
+          allOf:
+            - $ref: '#/components/schemas/QuestionOutcomeReasonCode'
+          nullable: true
+          description: Optional non-sensitive machine-readable reason code.
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+          description: Optional RAG confidence score in range [0.0, 1.0].
+        prompt_version_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional deterministic prompt version UUID from rag.prompt_versions.
+      example:
+        schema_version: "1.0"
+        query_id: "Ev0CHR36TQHZ"
+        timestamp: "2026-11-19T14:25:03.102Z"
+        outcome: "SAFE_NO_ANSWER"
+        escalation_id: null
+        resolution_status: null
+        reason_code: "LOW_CONFIDENCE"
+        confidence_score: 0.31
+        prompt_version_id: "550e8400-e29b-41d4-a716-446655440000"
