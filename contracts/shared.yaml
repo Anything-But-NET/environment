@@ -116,7 +116,6 @@ components:
         - query_id
         - timestamp
         - outcome
-        - escalation_id
       properties:
         schema_version:
           type: string

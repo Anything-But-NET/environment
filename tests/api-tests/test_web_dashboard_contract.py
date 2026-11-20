@@ -226,6 +226,76 @@ class TestWebDashboardDataContracts:
         }
         validate_openapi_schema(payload, "QuestionOutcomesAnalyticsResponse")
 
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {
+                "schema_version": "1.0",
+                "query_id": "req-123",
+                "timestamp": "2026-11-19T14:22:10Z",
+                "outcome": "ANSWERED",
+                "confidence_score": 0.91,
+            },
+            {
+                "schema_version": "1.0",
+                "query_id": "Ev0CHR36TQHZ",
+                "timestamp": "2026-11-19T14:25:03Z",
+                "outcome": "SAFE_NO_ANSWER",
+                "escalation_id": None,
+                "resolution_status": None,
+                "reason_code": "LOW_CONFIDENCE",
+                "confidence_score": 0.31,
+                "prompt_version_id": "550e8400-e29b-41d4-a716-446655440000",
+            },
+            {
+                "schema_version": "1.0",
+                "query_id": "req-456",
+                "timestamp": "2026-11-19T14:26:41Z",
+                "outcome": "ESCALATED",
+                "escalation_id": "ESC-2026-00419",
+                "resolution_status": "PENDING",
+                "reason_code": "USER_ESCALATED",
+                "confidence_score": 0.24,
+            },
+            {
+                "schema_version": "1.0",
+                "query_id": "req-789",
+                "timestamp": "2026-11-19T14:30:00Z",
+                "outcome": "FAILURE",
+            },
+        ],
+    )
+    def test_valid_question_outcome_event(self, validate_shared_schema, payload):
+        validate_shared_schema(payload, "QuestionOutcomeEvent")
+
+    @pytest.mark.parametrize(
+        "invalid_payload",
+        [
+            {
+                "schema_version": "1.0",
+                "query_id": "req-123",
+                "timestamp": "2026-11-19T14:22:10Z",
+                "outcome": "ANSWERED",
+                "query": "raw user question text",
+            },
+            {
+                "schema_version": "1.0",
+                "query_id": "req-123",
+                "timestamp": "2026-11-19T14:22:10Z",
+                "outcome": "SUCCESS",
+            },
+            {
+                "schema_version": "2.0",
+                "query_id": "req-123",
+                "timestamp": "2026-11-19T14:22:10Z",
+                "outcome": "ANSWERED",
+            },
+        ],
+    )
+    def test_invalid_question_outcome_event_rejected(self, validate_shared_schema, invalid_payload):
+        with pytest.raises(jsonschema.ValidationError):
+            validate_shared_schema(invalid_payload, "QuestionOutcomeEvent")
+
 class TestWebDashboardEndpointSpecs:
     """Verifies query parameters (pagination & log date filters) and security rules in openapi.yaml."""
 
