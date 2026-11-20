@@ -49,6 +49,7 @@ class TestCoreContractSchemas:
     def test_user_question_response_answered(self, validate_openapi_schema):
         payload = {
             "query_id": "req-123",
+            "question_id": "123e4567-e89b-12d3-a456-426614174000",
             "status": "ANSWERED",
             "reply_text": "To get internet compensation, submit the reimbursement form on SharePoint.",
             "citations": [
@@ -66,8 +67,9 @@ class TestCoreContractSchemas:
     def test_user_question_response_escalated(self, validate_openapi_schema):
         payload = {
             "query_id": "req-123",
+            "question_id": "123e4567-e89b-12d3-a456-426614174000",
             "status": "ESCALATED_TO_EXPERT",
-            "reply_text": "I couldn't find a confident answer. A support ticket was created.",
+            "reply_text": "I couldn't find a confident answer. Would you like me to send your question to a human expert?",
             "citations": [],
         }
         validate_openapi_schema(payload, "UserQuestionResponse")
