@@ -36,9 +36,13 @@ components:
     GenerationOutcome:
       type: string
       enum:
-        - SUCCESS
+        - ANSWERED
+        - SAFE_NO_ANSWER
+        - ESCALATED
         - FAILURE
-      description: Generation outcome persisted in core.generation_diagnostics.
+      description: >
+        Question generation and business outcome persisted in
+        core.generation_diagnostics (matches core.generation_outcome).
 
     RagErrorStatus:
       type: string
@@ -76,14 +80,6 @@ components:
         - ACTIVE
         - BLOCKED
       description: Dashboard operator account status (matches core.dashboard_operator_status).
-
-    QuestionOutcome:
-      type: string
-      enum:
-        - ANSWERED
-        - SAFE_NO_ANSWER
-        - ESCALATED
-      description: Business question outcome persisted in core.generation_diagnostics.
 
     EscalationResolutionStatus:
       type: string
@@ -137,13 +133,13 @@ components:
           format: date-time
           description: UTC ISO 8601 timestamp when the outcome was recorded.
         outcome:
-          $ref: '#/components/schemas/QuestionOutcome'
+          $ref: '#/components/schemas/GenerationOutcome'
         escalation_id:
           type: string
           nullable: true
           minLength: 1
           maxLength: 255
-          description: Escalation/ticket identifier (null for ANSWERED/SAFE_NO_ANSWER; populated 1:1 via query_id when escalated).
+          description: Escalation/ticket identifier (null for non-escalated outcomes; populated 1:1 via query_id when escalated).
         resolution_status:
           allOf:
             - $ref: '#/components/schemas/EscalationResolutionStatus'

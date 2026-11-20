@@ -52,8 +52,18 @@ Table core.document_sync_runs {
 }
 
 Enum core.generation_outcome {
-  SUCCESS
+  ANSWERED
+  SAFE_NO_ANSWER
+  ESCALATED
   FAILURE
+}
+
+Enum core.question_outcome_reason_code {
+  LOW_CONFIDENCE
+  EMPTY_RETRIEVAL
+  AUTO_FALLBACK
+  USER_ESCALATED
+  PROVIDER_UNAVAILABLE
 }
 
 Enum core.error_category {
@@ -67,15 +77,18 @@ Enum core.error_category {
 
 Table core.generation_diagnostics {
   id uuid [pk]
-  query_id varchar(255) [not null]
+  query_id varchar(255) [not null, unique]
   outcome core.generation_outcome [not null]
+  reason_code core.question_outcome_reason_code
   error_category core.error_category
   confidence_score float
+  prompt_version_id uuid
   created_at timestamptz [not null]
+  updated_at timestamptz [not null, default: `now()`]
 
   indexes {
-    query_id [name: 'idx_gen_diag_query_id']
     created_at [name: 'idx_gen_diag_created_at']
+    outcome [name: 'idx_gen_diag_outcome']
   }
 }
 

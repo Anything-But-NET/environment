@@ -95,16 +95,18 @@ class TestWebDashboardDataContracts:
         validate_openapi_schema(payload, "IngestionLogsPage")
 
     @pytest.mark.parametrize(
-        ("outcome", "error_category", "confidence_score"),
+        ("outcome", "reason_code", "error_category", "confidence_score"),
         [
-            ("SUCCESS", None, 0.91),
-            ("FAILURE", "INTERNAL_CONNECTION_ERROR", None),
-            ("FAILURE", "LLM_PROVIDER_ERROR", 0.0),
-            ("FAILURE", "RETRIEVAL_TIMEOUT", 0.25),
+            ("ANSWERED", None, None, 0.91),
+            ("SAFE_NO_ANSWER", "LOW_CONFIDENCE", None, 0.31),
+            ("ESCALATED", "USER_ESCALATED", None, 0.24),
+            ("FAILURE", None, "INTERNAL_CONNECTION_ERROR", None),
+            ("FAILURE", None, "LLM_PROVIDER_ERROR", 0.0),
+            ("FAILURE", None, "RETRIEVAL_TIMEOUT", 0.25),
         ],
     )
     def test_valid_generation_logs_page(
-        self, validate_openapi_schema, outcome, error_category, confidence_score
+            self, validate_openapi_schema, outcome, reason_code, error_category, confidence_score
     ):
         payload = {
             "items": [
@@ -112,6 +114,7 @@ class TestWebDashboardDataContracts:
                     "id": "123e4567-e89b-12d3-a456-426614174001",
                     "query_id": "req-123",
                     "outcome": outcome,
+                    "reason_code": reason_code,
                     "error_category": error_category,
                     "confidence_score": confidence_score,
                     "created_at": "2026-11-13T12:00:00Z",
@@ -205,6 +208,23 @@ class TestWebDashboardDataContracts:
             "DashboardErrorResponse",
         )
 
+    def test_valid_question_outcomes_analytics_response(self, validate_openapi_schema):
+        payload = {
+            "from": "2026-11-01T00:00:00Z",
+            "to": "2026-11-20T00:00:00Z",
+            "total_questions": 100,
+            "answered_count": 72,
+            "safe_no_answer_count": 15,
+            "escalated_count": 10,
+            "failure_count": 3,
+            "avg_confidence_score": 0.78,
+            "reason_code_counts": {
+                "LOW_CONFIDENCE": 12,
+                "EMPTY_RETRIEVAL": 3,
+                "USER_ESCALATED": 10,
+            },
+        }
+        validate_openapi_schema(payload, "QuestionOutcomesAnalyticsResponse")
 
 class TestWebDashboardEndpointSpecs:
     """Verifies query parameters (pagination & log date filters) and security rules in openapi.yaml."""
@@ -234,6 +254,7 @@ class TestWebDashboardEndpointSpecs:
         [
             "/api/v1/dash/logs/ingestion",
             "/api/v1/dash/logs/generation",
+            "/api/v1/dash/analytics/outcomes",
         ],
     )
     def test_log_endpoints_support_from_and_to_filters(self, openapi_spec, path):
