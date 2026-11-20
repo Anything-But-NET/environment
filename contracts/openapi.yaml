@@ -388,6 +388,37 @@ paths:
         '403':
           $ref: '#/components/responses/DashboardForbidden'
 
+  /api/v1/dash/analytics/outcomes:
+    get:
+      tags:
+        - WebAPI
+      summary: "[Web Dashboard] Get aggregated question outcome metrics"
+      description: >
+        Returns aggregated MVP analytics metrics computed from
+        core.generation_diagnostics (deduplicated by query_id). Exposes only
+        counts and non-sensitive diagnostic aggregates; never exposes raw
+        question text, answers, document content, or user PII.
+        Requires LOGS authority.
+      operationId: getQuestionOutcomeAnalytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FromTimestampParam'
+        - $ref: '#/components/parameters/ToTimestampParam'
+      responses:
+        '200':
+          description: Aggregated question outcome analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionOutcomesAnalyticsResponse'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+
   /api/v1/dash/documents:
     get:
       tags:
@@ -936,8 +967,13 @@ components:
           type: string
         outcome:
           $ref: './shared.yaml#/components/schemas/GenerationOutcome'
+        reason_code:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/QuestionOutcomeReasonCode'
+          nullable: true
         error_category:
-          $ref: './shared.yaml#/components/schemas/ErrorCategory'
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/ErrorCategory'
           nullable: true
         confidence_score:
           type: number
@@ -945,9 +981,17 @@ components:
           minimum: 0.0
           maximum: 1.0
           nullable: true
+        prompt_version_id:
+          type: string
+          format: uuid
+          nullable: true
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
 
     DocumentMetadataItem:
       type: object
@@ -1140,3 +1184,55 @@ components:
         total_pages:
           type: integer
           minimum: 0
+
+    QuestionOutcomesAnalyticsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - total_questions
+        - answered_count
+        - safe_no_answer_count
+        - escalated_count
+        - failure_count
+      properties:
+        from:
+          type: string
+          format: date-time
+          nullable: true
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        total_questions:
+          type: integer
+          format: int64
+          minimum: 0
+        answered_count:
+          type: integer
+          format: int64
+          minimum: 0
+        safe_no_answer_count:
+          type: integer
+          format: int64
+          minimum: 0
+        escalated_count:
+          type: integer
+          format: int64
+          minimum: 0
+        failure_count:
+          type: integer
+          format: int64
+          minimum: 0
+        avg_confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+        reason_code_counts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 0
+          description: Aggregated counts grouped by QuestionOutcomeReasonCode.
