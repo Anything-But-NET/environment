@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Shared Contract Schemas
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Single source of truth for schemas and enums shared across REST APIs
     (openapi.yaml) and Kafka event payloads (openapi-kafka.yaml).
@@ -72,6 +72,8 @@ components:
         - METADATA
         - USERS
         - OPERATORS
+        - ANALYTICS
+        - PROMPTS
       description: Dashboard operator permission (matches core.dashboard_operator_authority).
 
     OperatorStatus:
@@ -80,6 +82,13 @@ components:
         - ACTIVE
         - BLOCKED
       description: Dashboard operator account status (matches core.dashboard_operator_status).
+
+    ChatChannel:
+      type: string
+      enum:
+        - slack
+        - teams
+      description: Source communication platform (matches core.chat_channel).
 
     EscalationResolutionStatus:
       type: string
@@ -96,10 +105,10 @@ components:
       enum:
         - LOW_CONFIDENCE
         - EMPTY_RETRIEVAL
-        - AUTO_FALLBACK
-        - USER_ESCALATED
-        - PROVIDER_UNAVAILABLE
-      description: Non-sensitive reason code explaining a safe no-answer or escalation outcome.
+      description: >
+        Non-sensitive RAG diagnostic reason code explaining why the assistant
+        could not produce a confident answer. Preserved when transitioning
+        SAFE_NO_ANSWER -> ESCALATED; null when escalating after ANSWERED.
 
     QuestionOutcomeEvent:
       type: object
@@ -107,7 +116,8 @@ components:
       description: >
         Structured MVP analytics contract for question outcomes persisted in
         core.generation_diagnostics (deduplicated by query_id; ESCALATED
-        supersedes SAFE_NO_ANSWER; escalations link 1:1 via query_id).
+        supersedes SAFE_NO_ANSWER while preserving existing diagnostic reason_code;
+        escalations link 1:1 via query_id).
         Produced by java-service and consumed in aggregated form by
         webui-service. Must not contain raw question/answer text, document
         content, or user PII.
@@ -127,6 +137,11 @@ components:
           minLength: 1
           maxLength: 255
           description: Single stable identifier per question flow (maps to correlation_id; supports UUID or Slack event_id).
+        channel:
+          allOf:
+            - $ref: '#/components/schemas/ChatChannel'
+          nullable: true
+          description: Source communication channel (slack or teams).
         timestamp:
           type: string
           format: date-time
@@ -156,6 +171,12 @@ components:
           maximum: 1.0
           nullable: true
           description: Optional RAG confidence score in range [0.0, 1.0].
+        latency_ms:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: End-to-end RAG generation latency in milliseconds.
         prompt_version_id:
           type: string
           format: uuid
@@ -164,10 +185,12 @@ components:
       example:
         schema_version: "1.0"
         query_id: "Ev0CHR36TQHZ"
+        channel: "slack"
         timestamp: "2026-11-19T14:25:03.102Z"
         outcome: "SAFE_NO_ANSWER"
         escalation_id: null
         resolution_status: null
         reason_code: "LOW_CONFIDENCE"
         confidence_score: 0.31
+        latency_ms: 1420
         prompt_version_id: "550e8400-e29b-41d4-a716-446655440000"

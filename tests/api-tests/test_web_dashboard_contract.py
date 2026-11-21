@@ -99,7 +99,7 @@ class TestWebDashboardDataContracts:
         [
             ("ANSWERED", None, None, 0.91),
             ("SAFE_NO_ANSWER", "LOW_CONFIDENCE", None, 0.31),
-            ("ESCALATED", "USER_ESCALATED", None, 0.24),
+            ("ESCALATED", None, None, 0.24),
             ("FAILURE", None, "INTERNAL_CONNECTION_ERROR", None),
             ("FAILURE", None, "LLM_PROVIDER_ERROR", 0.0),
             ("FAILURE", None, "RETRIEVAL_TIMEOUT", 0.25),
@@ -210,19 +210,67 @@ class TestWebDashboardDataContracts:
 
     def test_valid_question_outcomes_analytics_response(self, validate_openapi_schema):
         payload = {
-            "from": "2026-11-01T00:00:00Z",
-            "to": "2026-11-20T00:00:00Z",
+            "from": "2026-11-18T00:00:00Z",
+            "to": "2026-11-21T00:00:00Z",
             "total_questions": 100,
-            "answered_count": 72,
-            "safe_no_answer_count": 15,
-            "escalated_count": 10,
-            "failure_count": 3,
+            "outcome_counts": [
+                {"outcome": "ANSWERED", "count": 72},
+                {"outcome": "SAFE_NO_ANSWER", "count": 15},
+                {"outcome": "ESCALATED", "count": 10},
+                {"outcome": "FAILURE", "count": 3},
+            ],
             "avg_confidence_score": 0.78,
-            "reason_code_counts": {
-                "LOW_CONFIDENCE": 12,
-                "EMPTY_RETRIEVAL": 3,
-                "USER_ESCALATED": 10,
+            "confidence_buckets": {
+                "high": 65,
+                "medium": 20,
+                "low": 12,
             },
+            "avg_latency_ms": 1420.5,
+            "p95_latency_ms": 3180.0,
+            "reason_code_counts": [
+                {"reason_code": "LOW_CONFIDENCE", "count": 12},
+                {"reason_code": "EMPTY_RETRIEVAL", "count": 8},
+            ],
+            "error_category_counts": [
+                {"error_category": "RETRIEVAL_TIMEOUT", "count": 2},
+                {"error_category": "LLM_PROVIDER_ERROR", "count": 1},
+            ],
+            "channel_counts": [
+                {"channel": "slack", "count": 92},
+                {"channel": "teams", "count": 8},
+            ],
+            "daily_trend": [
+                {
+                    "date": "2026-11-18",
+                    "total_questions": 30,
+                    "outcome_counts": [
+                        {"outcome": "ANSWERED", "count": 22},
+                        {"outcome": "SAFE_NO_ANSWER", "count": 5},
+                        {"outcome": "ESCALATED", "count": 2},
+                        {"outcome": "FAILURE", "count": 1},
+                    ],
+                },
+                {
+                    "date": "2026-11-19",
+                    "total_questions": 40,
+                    "outcome_counts": [
+                        {"outcome": "ANSWERED", "count": 28},
+                        {"outcome": "SAFE_NO_ANSWER", "count": 6},
+                        {"outcome": "ESCALATED", "count": 5},
+                        {"outcome": "FAILURE", "count": 1},
+                    ],
+                },
+                {
+                    "date": "2026-11-20",
+                    "total_questions": 30,
+                    "outcome_counts": [
+                        {"outcome": "ANSWERED", "count": 22},
+                        {"outcome": "SAFE_NO_ANSWER", "count": 4},
+                        {"outcome": "ESCALATED", "count": 3},
+                        {"outcome": "FAILURE", "count": 1},
+                    ],
+                },
+            ],
         }
         validate_openapi_schema(payload, "QuestionOutcomesAnalyticsResponse")
 
@@ -232,30 +280,36 @@ class TestWebDashboardDataContracts:
             {
                 "schema_version": "1.0",
                 "query_id": "req-123",
+                "channel": "slack",
                 "timestamp": "2026-11-19T14:22:10Z",
                 "outcome": "ANSWERED",
                 "confidence_score": 0.91,
+                "latency_ms": 1150,
             },
             {
                 "schema_version": "1.0",
                 "query_id": "Ev0CHR36TQHZ",
+                "channel": "slack",
                 "timestamp": "2026-11-19T14:25:03Z",
                 "outcome": "SAFE_NO_ANSWER",
                 "escalation_id": None,
                 "resolution_status": None,
                 "reason_code": "LOW_CONFIDENCE",
                 "confidence_score": 0.31,
+                "latency_ms": 1420,
                 "prompt_version_id": "550e8400-e29b-41d4-a716-446655440000",
             },
             {
                 "schema_version": "1.0",
                 "query_id": "req-456",
+                "channel": "teams",
                 "timestamp": "2026-11-19T14:26:41Z",
                 "outcome": "ESCALATED",
                 "escalation_id": "ESC-2026-00419",
                 "resolution_status": "PENDING",
-                "reason_code": "USER_ESCALATED",
+                "reason_code": None,
                 "confidence_score": 0.24,
+                "latency_ms": 1890,
             },
             {
                 "schema_version": "1.0",
@@ -296,6 +350,53 @@ class TestWebDashboardDataContracts:
         with pytest.raises(jsonschema.ValidationError):
             validate_shared_schema(invalid_payload, "QuestionOutcomeEvent")
 
+    def test_valid_prompt_versions_page_and_detail(self, validate_openapi_schema):
+        page_payload = {
+            "items": [
+                {
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "created_at": "2026-11-19T14:25:03Z",
+                }
+            ],
+            "page": 0,
+            "size": 20,
+            "total_elements": 1,
+            "total_pages": 1,
+        }
+        validate_openapi_schema(page_payload, "PromptVersionsPage")
+
+        detail_payload = {
+            "id": "550e8400-e29b-41d4-a716-446655440000",
+            "prompt_text": "You are a helpful internal IT assistant. Answer strictly using the provided context.",
+            "metadata": {"version": "v1.2", "author": "oleh"},
+            "created_at": "2026-11-19T14:25:03Z",
+        }
+        validate_openapi_schema(detail_payload, "PromptVersionDetail")
+
+    def test_valid_token_introspect_contracts(self, validate_openapi_schema):
+        validate_openapi_schema({"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}, "TokenIntrospectRequest")
+        validate_openapi_schema(
+            {
+                "active": True,
+                "operator_id": "550e8400-e29b-41d4-a716-446655440000",
+                "email": "oleh.pona@company.com",
+                "status": "ACTIVE",
+                "authorities": ["PROMPTS", "ANALYTICS"],
+            },
+            "TokenIntrospectResponse",
+        )
+        validate_openapi_schema(
+            {
+                "active": False,
+                "operator_id": None,
+                "email": None,
+                "status": None,
+                "authorities": [],
+            },
+            "TokenIntrospectResponse",
+        )
+
+
 class TestWebDashboardEndpointSpecs:
     """Verifies query parameters (pagination & log date filters) and security rules in openapi.yaml."""
 
@@ -304,6 +405,7 @@ class TestWebDashboardEndpointSpecs:
         [
             "/api/v1/dash/logs/ingestion",
             "/api/v1/dash/logs/generation",
+            "/api/v1/dash/prompts",
             "/api/v1/dash/documents",
             "/api/v1/dash/users",
             "/api/v1/dash/operators",
@@ -325,6 +427,7 @@ class TestWebDashboardEndpointSpecs:
             "/api/v1/dash/logs/ingestion",
             "/api/v1/dash/logs/generation",
             "/api/v1/dash/analytics/outcomes",
+            "/api/v1/dash/analytics/prompts/{prompt_version_id}/outcomes",
         ],
     )
     def test_log_endpoints_support_from_and_to_filters(self, openapi_spec, path):
