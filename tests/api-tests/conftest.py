@@ -145,3 +145,10 @@ def validate_kafka_schema(
 ) -> Callable[[Any, str], None]:
     """Validates a payload against components.schemas.<schema_name> in contracts/openapi-kafka.yaml."""
     return _build_schema_validator(KAFKA_OPENAPI_PATH, doc_cache)
+
+@pytest.fixture(scope="session")
+def validate_shared_schema(
+        doc_cache: dict[Path, dict[str, Any]],
+) -> Callable[[Any, str], None]:
+    """Validates a payload against components.schemas.<schema_name> in contracts/shared.yaml."""
+    return _build_schema_validator(SHARED_OPENAPI_PATH, doc_cache)
