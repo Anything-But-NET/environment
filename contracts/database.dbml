@@ -82,7 +82,7 @@ Enum core.error_category {
 Table core.generation_diagnostics {
   id uuid [pk]
   query_id varchar(255) [not null, unique]
-  channel core.chat_channel
+  channel core.chat_channel [not null, default: 'SLACK']
   outcome core.generation_outcome [not null]
   reason_code core.question_outcome_reason_code
   error_category core.error_category
