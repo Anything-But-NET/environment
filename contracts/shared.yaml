@@ -83,6 +83,14 @@ components:
         - BLOCKED
       description: Dashboard operator account status (matches core.dashboard_operator_status).
 
+    HealthStatus:
+      type: string
+      enum:
+        - UP
+        - DEGRADED
+        - DOWN
+      description: Overall or component-level service readiness status.
+
     ChatChannel:
       type: string
       enum:

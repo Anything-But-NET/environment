@@ -23,6 +23,8 @@ tags:
     description: Prompt version listing and inspection from rag.prompt_versions (served by RAG, verified via Core token introspection).
   - name: "Dashboard: Resources & Operators (Core)"
     description: Synced documents, user ACLs, and dashboard operator management (served by Core).
+  - name: Health
+    description: Component-level readiness and dependency health checks across Gateway (.NET), Core (Java), and RAG (Python) services.
 
 paths:
   # =============================================================
@@ -795,6 +797,144 @@ paths:
         '404':
           $ref: '#/components/responses/DashboardNotFound'
 
+  # =============================================================
+  # SERVICE READINESS & DEPENDENCY HEALTH CHECKS (SCRUM-97)
+  # =============================================================
+  /health:
+    get:
+      tags:
+        - Health
+      summary: "[RAG / Gateway] Check service readiness and dependency health"
+      description: >
+        Returns overall service readiness (UP, DEGRADED, or DOWN) and component-level
+        dependency health without exposing credentials, tokens, or connection strings.
+        Exposed by python-service (checking db, vectorizer, kafka, llm) and
+        .net-service / Copilot.TeamsBotApi (checking javaCore, kafka, slack, graph).
+      operationId: getServiceHealth
+      responses:
+        '200':
+          description: Service is operational (UP or DEGRADED).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceHealthResponse'
+              examples:
+                PythonRagHealthy:
+                  summary: Python RAG service fully operational
+                  value:
+                    status: "UP"
+                    components:
+                      db:
+                        status: "UP"
+                      vectorizer:
+                        status: "UP"
+                      kafka:
+                        status: "UP"
+                      llm:
+                        status: "UP"
+                PythonRagDegraded:
+                  summary: Python RAG service operational for chat while Kafka ingestion is down
+                  value:
+                    status: "DEGRADED"
+                    components:
+                      db:
+                        status: "UP"
+                      vectorizer:
+                        status: "UP"
+                      kafka:
+                        status: "DOWN"
+                        details:
+                          reason: "Kafka ingestion worker is not connected"
+                      llm:
+                        status: "UP"
+                NetGatewayHealthy:
+                  summary: .NET Gateway service fully operational
+                  value:
+                    status: "UP"
+                    components:
+                      javaCore:
+                        status: "UP"
+                      kafka:
+                        status: "UP"
+                      slack:
+                        status: "UP"
+                      graph:
+                        status: "UP"
+        '503':
+          description: Service is unavailable due to a critical dependency failure (DOWN).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceHealthResponse'
+              example:
+                status: "DOWN"
+                components:
+                  db:
+                    status: "DOWN"
+                    details:
+                      reason: "Database connection check failed"
+                  vectorizer:
+                    status: "UP"
+                  kafka:
+                    status: "UP"
+                  llm:
+                    status: "UP"
+
+  /actuator/health:
+    get:
+      tags:
+        - Health
+      summary: "[Core] Check Java Core service readiness and dependency health"
+      description: >
+        Spring Boot Actuator health endpoint exposing overall readiness (UP, DEGRADED, or DOWN)
+        and component checks for db, kafka, and pythonService without exposing secrets.
+      operationId: getCoreActuatorHealth
+      responses:
+        '200':
+          description: Core service is operational (UP or DEGRADED).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoreHealthResponse'
+              examples:
+                CoreHealthy:
+                  summary: Java Core service and all dependencies are healthy
+                  value:
+                    status: "UP"
+                    components:
+                      db:
+                        status: "UP"
+                      kafka:
+                        status: "UP"
+                      pythonService:
+                        status: "UP"
+                CoreDegraded:
+                  summary: Java Core service operational for chat while Kafka or downstream ingestion is degraded
+                  value:
+                    status: "DEGRADED"
+                    components:
+                      db:
+                        status: "UP"
+                      kafka:
+                        status: "UP"
+                      pythonService:
+                        status: "DEGRADED"
+        '503':
+          description: Core service is unavailable due to a critical dependency failure (DOWN).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoreHealthResponse'
+              example:
+                status: "DOWN"
+                components:
+                  db:
+                    status: "UP"
+                  kafka:
+                    status: "UP"
+                  pythonService:
+                    status: "DOWN"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1452,6 +1592,118 @@ components:
         total_pages:
           type: integer
           minimum: 0
+
+    # -------------------------------------------------------------
+    # SERVICE HEALTH CHECKS (SCRUM-97)
+    # -------------------------------------------------------------
+    ComponentHealth:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/HealthStatus'
+        details:
+          type: object
+          additionalProperties: true
+          description: >
+            Optional safe diagnostic metadata (e.g. reason, configured state).
+            Must NEVER contain secrets, API keys, tokens, or connection strings.
+
+    ServiceHealthResponse:
+      type: object
+      required:
+        - status
+        - components
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/HealthStatus'
+        components:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
+          description: Per-dependency health breakdown.
+
+    RagHealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - components
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/HealthStatus'
+        components:
+          type: object
+          additionalProperties: false
+          required:
+            - db
+            - vectorizer
+            - kafka
+            - llm
+          properties:
+            db:
+              $ref: '#/components/schemas/ComponentHealth'
+            vectorizer:
+              $ref: '#/components/schemas/ComponentHealth'
+            kafka:
+              $ref: '#/components/schemas/ComponentHealth'
+            llm:
+              $ref: '#/components/schemas/ComponentHealth'
+
+    CoreHealthResponse:
+      type: object
+      required:
+        - status
+        - components
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/HealthStatus'
+        components:
+          type: object
+          required:
+            - db
+            - kafka
+            - pythonService
+          properties:
+            db:
+              $ref: '#/components/schemas/ComponentHealth'
+            kafka:
+              $ref: '#/components/schemas/ComponentHealth'
+            pythonService:
+              $ref: '#/components/schemas/ComponentHealth'
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
+
+    GatewayHealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - components
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/HealthStatus'
+        components:
+          type: object
+          required:
+            - javaCore
+            - kafka
+            - slack
+            - graph
+          properties:
+            javaCore:
+              $ref: '#/components/schemas/ComponentHealth'
+            kafka:
+              $ref: '#/components/schemas/ComponentHealth'
+            slack:
+              $ref: '#/components/schemas/ComponentHealth'
+            graph:
+              $ref: '#/components/schemas/ComponentHealth'
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
 
     OutcomeCount:
       type: object
