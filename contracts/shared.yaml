@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Shared Contract Schemas
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Single source of truth for schemas and enums shared across REST APIs
     (openapi.yaml) and Kafka event payloads (openapi-kafka.yaml).
@@ -36,9 +36,13 @@ components:
     GenerationOutcome:
       type: string
       enum:
-        - SUCCESS
+        - ANSWERED
+        - SAFE_NO_ANSWER
+        - ESCALATED
         - FAILURE
-      description: Generation outcome persisted in core.generation_diagnostics.
+      description: >
+        Question generation and business outcome persisted in
+        core.generation_diagnostics (matches core.generation_outcome).
 
     RagErrorStatus:
       type: string
@@ -68,6 +72,8 @@ components:
         - METADATA
         - USERS
         - OPERATORS
+        - ANALYTICS
+        - PROMPTS
       description: Dashboard operator permission (matches core.dashboard_operator_authority).
 
     OperatorStatus:
@@ -84,3 +90,115 @@ components:
         - DEGRADED
         - DOWN
       description: Overall or component-level service readiness status.
+
+    ChatChannel:
+      type: string
+      enum:
+        - slack
+        - teams
+      description: Source communication platform (matches core.chat_channel).
+
+    EscalationResolutionStatus:
+      type: string
+      enum:
+        - PENDING
+        - IN_PROGRESS
+        - RESOLVED
+        - CLOSED
+        - CANCELLED
+      description: Lifecycle status of an escalated support ticket.
+
+    QuestionOutcomeReasonCode:
+      type: string
+      enum:
+        - LOW_CONFIDENCE
+        - EMPTY_RETRIEVAL
+      description: >
+        Non-sensitive RAG diagnostic reason code explaining why the assistant
+        could not produce a confident answer. Preserved when transitioning
+        SAFE_NO_ANSWER -> ESCALATED; null when escalating after ANSWERED.
+
+    QuestionOutcomeEvent:
+      type: object
+      additionalProperties: false
+      description: >
+        Structured MVP analytics contract for question outcomes persisted in
+        core.generation_diagnostics (deduplicated by query_id; ESCALATED
+        supersedes SAFE_NO_ANSWER while preserving existing diagnostic reason_code;
+        escalations link 1:1 via query_id).
+        Produced by java-service and consumed in aggregated form by
+        webui-service. Must not contain raw question/answer text, document
+        content, or user PII.
+      required:
+        - schema_version
+        - query_id
+        - timestamp
+        - outcome
+      properties:
+        schema_version:
+          type: string
+          enum:
+            - "1.0"
+          description: Contract schema version.
+        query_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Single stable identifier per question flow (maps to correlation_id; supports UUID or Slack event_id).
+        channel:
+          allOf:
+            - $ref: '#/components/schemas/ChatChannel'
+          nullable: true
+          description: Source communication channel (slack or teams).
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC ISO 8601 timestamp when the outcome was recorded.
+        outcome:
+          $ref: '#/components/schemas/GenerationOutcome'
+        escalation_id:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+          description: Escalation/ticket identifier (null for non-escalated outcomes; populated 1:1 via query_id when escalated).
+        resolution_status:
+          allOf:
+            - $ref: '#/components/schemas/EscalationResolutionStatus'
+          nullable: true
+          description: Ticket resolution lifecycle status (null for non-escalated questions).
+        reason_code:
+          allOf:
+            - $ref: '#/components/schemas/QuestionOutcomeReasonCode'
+          nullable: true
+          description: Optional non-sensitive machine-readable reason code.
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+          description: Optional RAG confidence score in range [0.0, 1.0].
+        latency_ms:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+          description: End-to-end RAG generation latency in milliseconds.
+        prompt_version_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional deterministic prompt version UUID from rag.prompt_versions.
+      example:
+        schema_version: "1.0"
+        query_id: "Ev0CHR36TQHZ"
+        channel: "slack"
+        timestamp: "2026-11-19T14:25:03.102Z"
+        outcome: "SAFE_NO_ANSWER"
+        escalation_id: null
+        resolution_status: null
+        reason_code: "LOW_CONFIDENCE"
+        confidence_score: 0.31
+        latency_ms: 1420
+        prompt_version_id: "550e8400-e29b-41d4-a716-446655440000"

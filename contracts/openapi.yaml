@@ -6,15 +6,23 @@ info:
     Gateway <-> Core, Core <-> RAG, and Web Dashboard BFF <-> Core.
     Kafka event payload schemas live in openapi-kafka.yaml.
     Shared enums and types live in shared.yaml.
-  version: 2.0.0
+  version: 2.1.0
 
 tags:
   - name: GatewayToCore
-    description: Communication between Chat Gateway (Slack/Teams) and Core system.
+    description: Communication between Chat Gateway (Slack/Teams) and Core service.
   - name: CoreToRag
     description: Communication between Core and RAG/Retrieval service.
-  - name: WebAPI
-    description: Stateless Bearer-JWT REST API consumed by the Next.js Web Dashboard BFF.
+  - name: Internal Auth
+    description: Internal service-to-service token introspection exposed by Core.
+  - name: "Dashboard: Auth (Core)"
+    description: Dashboard operator authentication and token refresh (served by Core).
+  - name: "Dashboard: Logs & Analytics (Core)"
+    description: Ingestion/generation logs and aggregated question-outcome analytics (served by Core).
+  - name: "Dashboard: Prompts (RAG)"
+    description: Prompt version listing and inspection from rag.prompt_versions (served by RAG, verified via Core token introspection).
+  - name: "Dashboard: Resources & Operators (Core)"
+    description: Synced documents, user ACLs, and dashboard operator management (served by Core).
   - name: Health
     description: Component-level readiness and dependency health checks across Gateway (.NET), Core (Java), and RAG (Python) services.
 
@@ -220,10 +228,57 @@ paths:
   # =============================================================
   # WEB DASHBOARD BFF -> CORE (WebAPI)
   # =============================================================
+  # =============================================================
+  # INTERNAL AUTH (CORE)
+  # =============================================================
+  /api/v1/internal/auth/introspect:
+    post:
+      tags:
+        - Internal Auth
+      summary: "[Internal Auth] Introspect dashboard operator JWT"
+      description: >
+        Internal endpoint called by python-service to validate a dashboard
+        Bearer JWT issued by java-service and retrieve the operator's current
+        status and authorities without coupling Python to core.dashboard_operators.
+      operationId: introspectDashboardToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenIntrospectRequest'
+      responses:
+        '200':
+          description: Token introspection result (active=false if invalid, expired, or operator blocked).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenIntrospectResponse'
+              examples:
+                Active:
+                  summary: Valid token for active operator
+                  value:
+                    active: true
+                    operator_id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "oleh.pona@company.com"
+                    status: "ACTIVE"
+                    authorities: ["PROMPTS", "ANALYTICS"]
+                Inactive:
+                  summary: Expired, malformed, or blocked token
+                  value:
+                    active: false
+                    operator_id: null
+                    email: null
+                    status: null
+                    authorities: []
+
+  # =============================================================
+  # DASHBOARD: AUTH (CORE)
+  # =============================================================
   /api/v1/dash/auth/login:
     post:
       tags:
-        - WebAPI
+        - "Dashboard: Auth (Core)"
       summary: "[Web Dashboard] Authenticate operator and issue JWT pair"
       description: >
         Authenticates an active dashboard operator by email and password and issues
@@ -266,7 +321,7 @@ paths:
   /api/v1/dash/auth/refresh:
     post:
       tags:
-        - WebAPI
+        - "Dashboard: Auth (Core)"
       summary: "[Web Dashboard] Rotate/refresh access JWT using refresh token"
       description: >
         Exchanges a valid refresh token for a fresh access/refresh token pair.
@@ -306,10 +361,13 @@ paths:
                 message: "Operator account is BLOCKED."
                 timestamp: "2026-11-13T12:00:00Z"
 
+  # =============================================================
+  # DASHBOARD: LOGS & ANALYTICS (CORE)
+  # =============================================================
   /api/v1/dash/logs/ingestion:
     get:
       tags:
-        - WebAPI
+        - "Dashboard: Logs & Analytics (Core)"
       summary: "[Web Dashboard] List ingestion sync runs"
       description: >
         Returns paginated ingestion sync runs from core.document_sync_runs ordered
@@ -351,7 +409,7 @@ paths:
   /api/v1/dash/logs/generation:
     get:
       tags:
-        - WebAPI
+        - "Dashboard: Logs & Analytics (Core)"
       summary: "[Web Dashboard] List RAG generation diagnostic logs"
       description: >
         Returns paginated generation diagnostics from core.generation_diagnostics
@@ -390,10 +448,234 @@ paths:
         '403':
           $ref: '#/components/responses/DashboardForbidden'
 
+  /api/v1/dash/analytics/outcomes:
+    get:
+      tags:
+        - "Dashboard: Logs & Analytics (Core)"
+      summary: "[Web Dashboard] Get aggregated question outcome metrics"
+      description: >
+        Returns aggregated MVP analytics metrics computed from
+        core.generation_diagnostics (deduplicated by query_id), including
+        daily processing trend, latency stats, confidence distribution, and
+        outcome/reason/error/channel breakdowns. Exposes only counts and
+        non-sensitive diagnostic aggregates; never exposes raw question text,
+        answers, document content, or user PII.
+        Requires ANALYTICS authority.
+      operationId: getQuestionOutcomeAnalytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FromTimestampParam'
+        - $ref: '#/components/parameters/ToTimestampParam'
+        - name: channel
+          in: query
+          required: false
+          description: Optional filter by communication channel.
+          schema:
+            $ref: './shared.yaml#/components/schemas/ChatChannel'
+      responses:
+        '200':
+          description: Aggregated question outcome analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionOutcomesAnalyticsResponse'
+              example:
+                from: "2026-11-18T00:00:00Z"
+                to: "2026-11-21T00:00:00Z"
+                total_questions: 100
+                outcome_counts:
+                  - outcome: "ANSWERED"
+                    count: 72
+                  - outcome: "SAFE_NO_ANSWER"
+                    count: 15
+                  - outcome: "ESCALATED"
+                    count: 10
+                  - outcome: "FAILURE"
+                    count: 3
+                avg_confidence_score: 0.78
+                confidence_buckets:
+                  high: 65
+                  medium: 20
+                  low: 12
+                avg_latency_ms: 1420.5
+                p95_latency_ms: 3180.0
+                reason_code_counts:
+                  - reason_code: "LOW_CONFIDENCE"
+                    count: 12
+                  - reason_code: "EMPTY_RETRIEVAL"
+                    count: 8
+                error_category_counts:
+                  - error_category: "RETRIEVAL_TIMEOUT"
+                    count: 2
+                  - error_category: "LLM_PROVIDER_ERROR"
+                    count: 1
+                channel_counts:
+                  - channel: "slack"
+                    count: 92
+                  - channel: "teams"
+                    count: 8
+                daily_trend:
+                  - date: "2026-11-18"
+                    total_questions: 30
+                    outcome_counts:
+                      - outcome: "ANSWERED"
+                        count: 22
+                      - outcome: "SAFE_NO_ANSWER"
+                        count: 5
+                      - outcome: "ESCALATED"
+                        count: 2
+                      - outcome: "FAILURE"
+                        count: 1
+                  - date: "2026-11-19"
+                    total_questions: 40
+                    outcome_counts:
+                      - outcome: "ANSWERED"
+                        count: 28
+                      - outcome: "SAFE_NO_ANSWER"
+                        count: 6
+                      - outcome: "ESCALATED"
+                        count: 5
+                      - outcome: "FAILURE"
+                        count: 1
+                  - date: "2026-11-20"
+                    total_questions: 30
+                    outcome_counts:
+                      - outcome: "ANSWERED"
+                        count: 22
+                      - outcome: "SAFE_NO_ANSWER"
+                        count: 4
+                      - outcome: "ESCALATED"
+                        count: 3
+                      - outcome: "FAILURE"
+                        count: 1
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+
+  /api/v1/dash/analytics/prompts/{prompt_version_id}/outcomes:
+    get:
+      tags:
+        - "Dashboard: Logs & Analytics (Core)"
+      summary: "[Web Dashboard] Get aggregated outcome metrics for a specific prompt version"
+      description: >
+        Returns aggregated question outcome metrics scoped strictly to the given
+        prompt_version_id. Allows operators with PROMPTS authority to view
+        prompt performance without exposing global site-wide analytics.
+        Requires PROMPTS authority.
+      operationId: getPromptOutcomeAnalytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: prompt_version_id
+          in: path
+          required: true
+          description: Prompt version UUID from rag.prompt_versions.
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/FromTimestampParam'
+        - $ref: '#/components/parameters/ToTimestampParam'
+        - name: channel
+          in: query
+          required: false
+          description: Optional filter by communication channel.
+          schema:
+            $ref: './shared.yaml#/components/schemas/ChatChannel'
+      responses:
+        '200':
+          description: Prompt-scoped aggregated question outcome analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionOutcomesAnalyticsResponse'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+
+  # =============================================================
+  # DASHBOARD: PROMPTS (RAG)
+  # =============================================================
+  /api/v1/dash/prompts:
+    get:
+      tags:
+        - "Dashboard: Prompts (RAG)"
+      summary: "[Web Dashboard] List prompt versions"
+      description: >
+        Returns paginated prompt versions from rag.prompt_versions ordered by
+        created_at descending. Served by python-service; token and PROMPTS
+        authority are verified via java-service token introspection.
+        Requires PROMPTS authority.
+      operationId: getPromptVersions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated prompt versions list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptVersionsPage'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+
+  /api/v1/dash/prompts/{prompt_version_id}:
+    get:
+      tags:
+        - "Dashboard: Prompts (RAG)"
+      summary: "[Web Dashboard] Get prompt version details"
+      description: >
+        Returns full prompt version details (including prompt_text and metadata)
+        from rag.prompt_versions by UUID. Served by python-service; token and
+        PROMPTS authority are verified via java-service token introspection.
+        Requires PROMPTS authority.
+      operationId: getPromptVersionById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: prompt_version_id
+          in: path
+          required: true
+          description: Prompt version UUID from rag.prompt_versions.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Prompt version details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptVersionDetail'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+        '404':
+          $ref: '#/components/responses/DashboardNotFound'
+
+  # =============================================================
+  # DASHBOARD: RESOURCES & OPERATORS (CORE)
+  # =============================================================
   /api/v1/dash/documents:
     get:
       tags:
-        - WebAPI
+        - "Dashboard: Resources & Operators (Core)"
       summary: "[Web Dashboard] List synced document metadata"
       description: >
         Returns paginated document metadata from core.document_metadata.
@@ -421,7 +703,7 @@ paths:
   /api/v1/dash/users:
     get:
       tags:
-        - WebAPI
+        - "Dashboard: Resources & Operators (Core)"
       summary: "[Web Dashboard] List synced user ACLs"
       description: >
         Returns paginated user ACL entries from core.users.
@@ -449,7 +731,7 @@ paths:
   /api/v1/dash/operators:
     get:
       tags:
-        - WebAPI
+        - "Dashboard: Resources & Operators (Core)"
       summary: "[Web Dashboard] List dashboard operators"
       description: >
         Returns paginated operator accounts from core.dashboard_operators
@@ -477,7 +759,7 @@ paths:
   /api/v1/dash/operators/{id}/status:
     patch:
       tags:
-        - WebAPI
+        - "Dashboard: Resources & Operators (Core)"
       summary: "[Web Dashboard] Block or unblock a dashboard operator"
       description: >
         Updates an operator's status (ACTIVE or BLOCKED). Blocking immediately
@@ -863,6 +1145,14 @@ components:
           description: >
             Aggregated confidence score. If below threshold (e.g., 0.5) or status is not
             ANSWER_GENERATED, Core escalates to a human expert.
+        prompt_version_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Optional UUID of the prompt version from rag.prompt_versions used
+            to generate this response. Persisted as an opaque identifier by Core
+            for prompt-level analytics without cross-schema coupling.
         citations:
           type: array
           description: >
@@ -1074,10 +1364,19 @@ components:
           format: uuid
         query_id:
           type: string
+        channel:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/ChatChannel'
+          nullable: true
         outcome:
           $ref: './shared.yaml#/components/schemas/GenerationOutcome'
+        reason_code:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/QuestionOutcomeReasonCode'
+          nullable: true
         error_category:
-          $ref: './shared.yaml#/components/schemas/ErrorCategory'
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/ErrorCategory'
           nullable: true
         confidence_score:
           type: number
@@ -1085,9 +1384,22 @@ components:
           minimum: 0.0
           maximum: 1.0
           nullable: true
+        latency_ms:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        prompt_version_id:
+          type: string
+          format: uuid
+          nullable: true
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
 
     DocumentMetadataItem:
       type: object
@@ -1392,3 +1704,270 @@ components:
               $ref: '#/components/schemas/ComponentHealth'
           additionalProperties:
             $ref: '#/components/schemas/ComponentHealth'
+
+    OutcomeCount:
+      type: object
+      additionalProperties: false
+      required:
+        - outcome
+        - count
+      properties:
+        outcome:
+          $ref: './shared.yaml#/components/schemas/GenerationOutcome'
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ReasonCodeCount:
+      type: object
+      additionalProperties: false
+      required:
+        - reason_code
+        - count
+      properties:
+        reason_code:
+          $ref: './shared.yaml#/components/schemas/QuestionOutcomeReasonCode'
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ErrorCategoryCount:
+      type: object
+      additionalProperties: false
+      required:
+        - error_category
+        - count
+      properties:
+        error_category:
+          $ref: './shared.yaml#/components/schemas/ErrorCategory'
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ChannelCount:
+      type: object
+      additionalProperties: false
+      required:
+        - channel
+        - count
+      properties:
+        channel:
+          $ref: './shared.yaml#/components/schemas/ChatChannel'
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ConfidenceBuckets:
+      type: object
+      additionalProperties: false
+      required:
+        - high
+        - medium
+        - low
+      description: Distribution of non-null confidence_score (high >= 0.7, medium 0.4..0.7, low < 0.4).
+      properties:
+        high:
+          type: integer
+          format: int64
+          minimum: 0
+        medium:
+          type: integer
+          format: int64
+          minimum: 0
+        low:
+          type: integer
+          format: int64
+          minimum: 0
+
+    DailyOutcomePoint:
+      type: object
+      additionalProperties: false
+      required:
+        - date
+        - total_questions
+        - outcome_counts
+      properties:
+        date:
+          type: string
+          format: date
+          description: UTC calendar date (YYYY-MM-DD).
+        total_questions:
+          type: integer
+          format: int64
+          minimum: 0
+        outcome_counts:
+          type: array
+          description: Per-outcome counts for this date, keyed by GenerationOutcome enum.
+          items:
+            $ref: '#/components/schemas/OutcomeCount'
+
+    QuestionOutcomesAnalyticsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - total_questions
+        - outcome_counts
+        - confidence_buckets
+        - reason_code_counts
+        - error_category_counts
+        - channel_counts
+        - daily_trend
+      properties:
+        from:
+          type: string
+          format: date-time
+          nullable: true
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        total_questions:
+          type: integer
+          format: int64
+          minimum: 0
+        outcome_counts:
+          type: array
+          description: Aggregated counts grouped by GenerationOutcome enum.
+          items:
+            $ref: '#/components/schemas/OutcomeCount'
+        avg_confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+        confidence_buckets:
+          $ref: '#/components/schemas/ConfidenceBuckets'
+        avg_latency_ms:
+          type: number
+          format: float
+          minimum: 0.0
+          nullable: true
+          description: Mean RAG generation latency in milliseconds.
+        p95_latency_ms:
+          type: number
+          format: float
+          minimum: 0.0
+          nullable: true
+          description: 95th percentile RAG generation latency in milliseconds.
+        reason_code_counts:
+          type: array
+          description: Aggregated counts grouped by QuestionOutcomeReasonCode enum.
+          items:
+            $ref: '#/components/schemas/ReasonCodeCount'
+        error_category_counts:
+          type: array
+          description: Aggregated counts grouped by ErrorCategory enum (for FAILURE outcomes).
+          items:
+            $ref: '#/components/schemas/ErrorCategoryCount'
+        channel_counts:
+          type: array
+          description: Aggregated counts grouped by ChatChannel enum.
+          items:
+            $ref: '#/components/schemas/ChannelCount'
+        daily_trend:
+          type: array
+          description: Daily time-series breakdown ordered ascending by UTC date.
+          items:
+            $ref: '#/components/schemas/DailyOutcomePoint'
+
+    PromptVersionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    PromptVersionDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - prompt_text
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        prompt_text:
+          type: string
+          description: Full prompt template text from rag.prompt_versions.prompt_text.
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Arbitrary prompt version metadata from rag.prompt_versions.metadata (JSONB).
+        created_at:
+          type: string
+          format: date-time
+
+    PromptVersionsPage:
+      type: object
+      required: [items, page, size, total_elements, total_pages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptVersionSummary'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        total_elements:
+          type: integer
+          format: int64
+          minimum: 0
+        total_pages:
+          type: integer
+          minimum: 0
+
+    TokenIntrospectRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Bearer JWT access token to validate.
+
+    TokenIntrospectResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - active
+        - authorities
+      properties:
+        active:
+          type: boolean
+          description: True if token is valid and operator is ACTIVE; false otherwise.
+        operator_id:
+          type: string
+          format: uuid
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        status:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/OperatorStatus'
+          nullable: true
+        authorities:
+          type: array
+          items:
+            $ref: './shared.yaml#/components/schemas/OperatorAuthority'
