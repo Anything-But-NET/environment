@@ -19,6 +19,8 @@ tags:
     description: Dashboard operator authentication and token refresh (served by Core).
   - name: "Dashboard: Logs & Analytics (Core)"
     description: Ingestion/generation logs and aggregated question-outcome analytics (served by Core).
+  - name: "Dashboard: Escalations (Core)"
+    description: Support escalation queue and resolution status lifecycle management (served by Core).
   - name: "Dashboard: Prompts (RAG)"
     description: Prompt version listing and inspection from rag.prompt_versions (served by RAG, verified via Core token introspection).
   - name: "Dashboard: Resources & Operators (Core)"
@@ -110,6 +112,83 @@ paths:
                 error_code: "SERVICE_UNAVAILABLE"
                 user_message: "The knowledge assistant is temporarily unavailable. Please try again in a few minutes."
 
+  /api/v1/chat/escalations:
+    post:
+      tags:
+        - GatewayToCore
+      summary: "[Gateway -> Core] Create or retrieve confirmed escalation"
+      description: >
+        Idempotently creates a persistent support escalation linked 1:1 to an
+        existing question flow by query_id and transitions the diagnostic outcome
+        to ESCALATED. During POST /api/v1/chat/question, Core stores a short-lived
+        escalation draft (requester_email, question_text, source_references) with
+        a 15-minute TTL so user prompts are not persisted long-term without explicit
+        confirmation. On confirmation, Core first checks core.escalations for
+        idempotency (returning 200 OK even if the draft has already been removed),
+        then promotes the draft into core.escalations and deletes the draft.
+        If the 15-minute confirmation window has expired, returns 410 Gone.
+      operationId: createOrGetEscalation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscalationRequest'
+            example:
+              query_id: "req-123"
+      responses:
+        '200':
+          description: Escalation created or existing escalation returned idempotently.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationResponse'
+              example:
+                escalation_id: "550e8400-e29b-41d4-a716-446655440000"
+                query_id: "req-123"
+                status: "PENDING"
+                created_at: "2026-11-23T10:15:30Z"
+                updated_at: "2026-11-23T10:15:30Z"
+        '400':
+          description: Bad Request (invalid payload or question cannot be escalated).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayErrorResponse'
+              example:
+                query_id: "req-123"
+                error_code: "BAD_REQUEST"
+                user_message: "Cannot escalate a failed or invalid question request."
+        '404':
+          description: Not Found (no question diagnostic record found for query_id).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayErrorResponse'
+              example:
+                query_id: "req-missing"
+                error_code: "BAD_REQUEST"
+                user_message: "Question not found for the provided query_id."
+        '410':
+          description: Gone (15-minute escalation confirmation draft has expired).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayErrorResponse'
+              example:
+                query_id: "req-123"
+                error_code: "BAD_REQUEST"
+                user_message: "Escalation confirmation window (15m) has expired. Please ask your question again."
+        '500':
+          description: Internal Server Error in Core.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayErrorResponse'
+              example:
+                query_id: "req-123"
+                error_code: "INTERNAL_ERROR"
+                user_message: "An unexpected error occurred while creating the escalation."
   # =============================================================
   # CORE -> RAG
   # =============================================================
@@ -598,6 +677,129 @@ paths:
           $ref: '#/components/responses/DashboardUnauthorized'
         '403':
           $ref: '#/components/responses/DashboardForbidden'
+
+  # =============================================================
+  # DASHBOARD: ESCALATIONS (CORE)
+  # =============================================================
+  /api/v1/dash/escalations:
+    get:
+      tags:
+        - "Dashboard: Escalations (Core)"
+      summary: "[Web Dashboard] List support escalations for expert queue"
+      description: >
+        Returns paginated support escalations from core.escalations ordered by
+        created_at descending. Supports filtering by lifecycle status, time range,
+        and correlation query_id. Requires ESCALATIONS or OPERATORS authority.
+      operationId: getEscalations
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/FromTimestampParam'
+        - $ref: '#/components/parameters/ToTimestampParam'
+        - name: status
+          in: query
+          required: false
+          description: Optional filter by escalation resolution status.
+          schema:
+            $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        - name: query_id
+          in: query
+          required: false
+          description: Optional exact filter by correlation query_id.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated escalation queue list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationsPage'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+
+  /api/v1/dash/escalations/{id}:
+    get:
+      tags:
+        - "Dashboard: Escalations (Core)"
+      summary: "[Web Dashboard] Get escalation details and status history"
+      description: >
+        Returns escalation details along with its chronological status transition
+        history. Requires ESCALATIONS or OPERATORS authority.
+      operationId: getEscalationById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escalation UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Escalation details with status history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationDetail'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+        '404':
+          $ref: '#/components/responses/DashboardNotFound'
+
+  /api/v1/dash/escalations/{id}/status:
+    patch:
+      tags:
+        - "Dashboard: Escalations (Core)"
+      summary: "[Web Dashboard] Transition escalation lifecycle status"
+      description: >
+        Updates the lifecycle status of an escalation (PENDING -> IN_PROGRESS ->
+        RESOLVED -> CLOSED, or CANCELLED) and records an audit entry in
+        core.escalation_status_history. Requires ESCALATIONS or OPERATORS authority.
+      operationId: updateEscalationStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escalation UUID.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEscalationStatusRequest'
+      responses:
+        '200':
+          description: Escalation status updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationItem'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+        '404':
+          $ref: '#/components/responses/DashboardNotFound'
 
   # =============================================================
   # DASHBOARD: PROMPTS (RAG)
@@ -1094,6 +1296,43 @@ components:
           type: string
           description: Safe, user-friendly error message suitable for display in chat.
 
+    CreateEscalationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - query_id
+      properties:
+        query_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Unified correlation/trace ID linking the escalation 1:1 to a processed question.
+
+    EscalationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - escalation_id
+        - query_id
+        - status
+        - created_at
+        - updated_at
+      properties:
+        escalation_id:
+          type: string
+          format: uuid
+          description: Unique persistent escalation identifier.
+        query_id:
+          type: string
+          description: Unified correlation/trace ID of the initial question.
+        status:
+          $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     # -------------------------------------------------------------
     # CORE <-> RAG
     # -------------------------------------------------------------
@@ -1392,6 +1631,14 @@ components:
         prompt_version_id:
           type: string
           format: uuid
+          nullable: true
+        escalation_id:
+          type: string
+          format: uuid
+          nullable: true
+        resolution_status:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
           nullable: true
         created_at:
           type: string
@@ -1971,3 +2218,172 @@ components:
           type: array
           items:
             $ref: './shared.yaml#/components/schemas/OperatorAuthority'
+    # -------------------------------------------------------------
+    # DASHBOARD: ESCALATIONS
+    # -------------------------------------------------------------
+    EscalationItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - query_id
+        - requester_email
+        - question_text
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        query_id:
+          type: string
+        requester_email:
+          type: string
+          format: email
+        question_text:
+          type: string
+          minLength: 1
+        status:
+          $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        channel:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/ChatChannel'
+          nullable: true
+        reason_code:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/QuestionOutcomeReasonCode'
+          nullable: true
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    EscalationStatusHistoryItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - to_status
+        - changed_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        from_status:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+          nullable: true
+        to_status:
+          $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        changed_by_operator_id:
+          type: string
+          format: uuid
+          nullable: true
+        changed_at:
+          type: string
+          format: date-time
+
+    EscalationDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - query_id
+        - requester_email
+        - question_text
+        - source_references
+        - status
+        - created_at
+        - updated_at
+        - status_history
+      properties:
+        id:
+          type: string
+          format: uuid
+        query_id:
+          type: string
+        requester_email:
+          type: string
+          format: email
+        question_text:
+          type: string
+          minLength: 1
+        source_references:
+          type: array
+          description: Enriched RAG citations preserved from the 15-minute escalation draft.
+          items:
+            $ref: '#/components/schemas/Citation'
+        status:
+          $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        channel:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/ChatChannel'
+          nullable: true
+        reason_code:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/QuestionOutcomeReasonCode'
+          nullable: true
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        status_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/EscalationStatusHistoryItem'
+
+    UpdateEscalationStatusRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+
+    EscalationsPage:
+      type: object
+      required: [items, page, size, total_elements, total_pages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EscalationItem'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        total_elements:
+          type: integer
+          format: int64
+          minimum: 0
+        total_pages:
+          type: integer
+          minimum: 0
