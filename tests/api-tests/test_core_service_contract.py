@@ -93,6 +93,34 @@ class TestCoreContractSchemas:
         with pytest.raises(jsonschema.ValidationError):
             validate_openapi_schema(invalid_payload, "GatewayErrorResponse")
 
+    def test_create_escalation_request(self, validate_openapi_schema):
+        validate_openapi_schema({"query_id": "req-123"}, "CreateEscalationRequest")
+
+    @pytest.mark.parametrize(
+        "invalid_payload",
+        [
+            {},
+            {"query_id": ""},
+            {"query_id": "req-123", "extra": "not-allowed"},
+        ],
+    )
+    def test_invalid_create_escalation_request_rejected(self, validate_openapi_schema, invalid_payload):
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(invalid_payload, "CreateEscalationRequest")
+
+    @pytest.mark.parametrize(
+        "status",
+        ["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED", "CANCELLED"],
+    )
+    def test_escalation_response(self, validate_openapi_schema, status):
+        payload = {
+            "escalation_id": "550e8400-e29b-41d4-a716-446655440000",
+            "query_id": "req-123",
+            "status": status,
+            "created_at": "2026-11-23T10:15:30Z",
+            "updated_at": "2026-11-23T10:20:00Z",
+        }
+        validate_openapi_schema(payload, "EscalationResponse")
 
 @pytest.mark.skipif(
     not _is_service_up(CORE_BASE_URL),

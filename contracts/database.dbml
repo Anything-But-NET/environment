@@ -22,6 +22,7 @@ Enum core.dashboard_operator_authority {
   OPERATORS
   ANALYTICS
   PROMPTS
+  ESCALATIONS
 }
 
 Enum core.dashboard_operator_status {
@@ -98,6 +99,46 @@ Table core.generation_diagnostics {
     channel [name: 'idx_gen_diag_channel']
   }
 }
+
+Enum core.escalation_status {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+Table core.escalations {
+  id uuid [pk]
+  query_id varchar(255) [not null, unique]
+  status core.escalation_status [not null, default: 'PENDING']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  resolved_at timestamptz
+
+  indexes {
+    status [name: 'idx_escalations_status']
+    created_at [name: 'idx_escalations_created_at']
+  }
+}
+
+Table core.escalation_status_history {
+  id uuid [pk]
+  escalation_id uuid [not null]
+  from_status core.escalation_status
+  to_status core.escalation_status [not null]
+  changed_by_operator_id uuid
+  changed_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    escalation_id [name: 'idx_esc_history_escalation_id']
+    changed_at [name: 'idx_esc_history_changed_at']
+  }
+}
+
+Ref: core.escalations.query_id - core.generation_diagnostics.query_id [delete: restrict]
+Ref: core.escalation_status_history.escalation_id > core.escalations.id [delete: cascade]
+Ref: core.escalation_status_history.changed_by_operator_id > core.dashboard_operators.id [delete: set null]
 
 Table core.users {
   email varchar(255) [pk]

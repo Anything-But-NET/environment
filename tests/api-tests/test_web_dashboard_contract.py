@@ -208,6 +208,50 @@ class TestWebDashboardDataContracts:
             "DashboardErrorResponse",
         )
 
+    def test_valid_escalations_page_and_detail(self, validate_openapi_schema):
+        item = {
+            "id": "550e8400-e29b-41d4-a716-446655440000",
+            "query_id": "req-123",
+            "status": "PENDING",
+            "channel": "slack",
+            "reason_code": "LOW_CONFIDENCE",
+            "confidence_score": 0.31,
+            "created_at": "2026-11-23T10:15:30Z",
+            "updated_at": "2026-11-23T10:15:30Z",
+            "resolved_at": None,
+        }
+        validate_openapi_schema(
+            {"items": [item], "page": 0, "size": 20, "total_elements": 1, "total_pages": 1},
+            "EscalationsPage",
+        )
+        detail = {
+            **item,
+            "status": "RESOLVED",
+            "resolved_at": "2026-11-23T11:00:00Z",
+            "status_history": [
+                {
+                    "id": "660e8400-e29b-41d4-a716-446655440001",
+                    "from_status": None,
+                    "to_status": "PENDING",
+                    "changed_by_operator_id": None,
+                    "changed_at": "2026-11-23T10:15:30Z",
+                },
+                {
+                    "id": "660e8400-e29b-41d4-a716-446655440002",
+                    "from_status": "PENDING",
+                    "to_status": "RESOLVED",
+                    "changed_by_operator_id": "123e4567-e89b-12d3-a456-426614174002",
+                    "changed_at": "2026-11-23T11:00:00Z",
+                },
+            ],
+        }
+        validate_openapi_schema(detail, "EscalationDetail")
+        validate_openapi_schema({"status": "IN_PROGRESS"}, "UpdateEscalationStatusRequest")
+
+    def test_update_escalation_status_rejects_invalid_enum(self, validate_openapi_schema):
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema({"status": "REOPENED"}, "UpdateEscalationStatusRequest")
+
     def test_valid_question_outcomes_analytics_response(self, validate_openapi_schema):
         payload = {
             "from": "2026-11-18T00:00:00Z",
@@ -409,6 +453,7 @@ class TestWebDashboardEndpointSpecs:
             "/api/v1/dash/documents",
             "/api/v1/dash/users",
             "/api/v1/dash/operators",
+            "/api/v1/dash/escalations",
         ],
     )
     def test_list_endpoints_have_spring_pagination_and_bearer_auth(self, openapi_spec, path):
@@ -428,6 +473,7 @@ class TestWebDashboardEndpointSpecs:
             "/api/v1/dash/logs/generation",
             "/api/v1/dash/analytics/outcomes",
             "/api/v1/dash/analytics/prompts/{prompt_version_id}/outcomes",
+            "/api/v1/dash/escalations",
         ],
     )
     def test_log_endpoints_support_from_and_to_filters(self, openapi_spec, path):

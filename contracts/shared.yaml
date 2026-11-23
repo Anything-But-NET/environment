@@ -74,6 +74,7 @@ components:
         - OPERATORS
         - ANALYTICS
         - PROMPTS
+        - ESCALATIONS
       description: Dashboard operator permission (matches core.dashboard_operator_authority).
 
     OperatorStatus:
