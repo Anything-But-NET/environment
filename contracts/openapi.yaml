@@ -120,8 +120,13 @@ paths:
       description: >
         Idempotently creates a persistent support escalation linked 1:1 to an
         existing question flow by query_id and transitions the diagnostic outcome
-        to ESCALATED. Repeated requests with the same query_id return the
-        existing escalation record without creating duplicates.
+        to ESCALATED. During POST /api/v1/chat/question, Core stores a short-lived
+        escalation draft (requester_email, question_text, source_references) with
+        a 15-minute TTL so user prompts are not persisted long-term without explicit
+        confirmation. On confirmation, Core first checks core.escalations for
+        idempotency (returning 200 OK even if the draft has already been removed),
+        then promotes the draft into core.escalations and deletes the draft.
+        If the 15-minute confirmation window has expired, returns 410 Gone.
       operationId: createOrGetEscalation
       requestBody:
         required: true
@@ -164,6 +169,16 @@ paths:
                 query_id: "req-missing"
                 error_code: "BAD_REQUEST"
                 user_message: "Question not found for the provided query_id."
+        '410':
+          description: Gone (15-minute escalation confirmation draft has expired).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayErrorResponse'
+              example:
+                query_id: "req-123"
+                error_code: "BAD_REQUEST"
+                user_message: "Escalation confirmation window (15m) has expired. Please ask your question again."
         '500':
           description: Internal Server Error in Core.
           content:
@@ -2212,6 +2227,8 @@ components:
       required:
         - id
         - query_id
+        - requester_email
+        - question_text
         - status
         - created_at
         - updated_at
@@ -2221,6 +2238,12 @@ components:
           format: uuid
         query_id:
           type: string
+        requester_email:
+          type: string
+          format: email
+        question_text:
+          type: string
+          minLength: 1
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
         channel:
@@ -2279,6 +2302,9 @@ components:
       required:
         - id
         - query_id
+        - requester_email
+        - question_text
+        - source_references
         - status
         - created_at
         - updated_at
@@ -2289,6 +2315,17 @@ components:
           format: uuid
         query_id:
           type: string
+        requester_email:
+          type: string
+          format: email
+        question_text:
+          type: string
+          minLength: 1
+        source_references:
+          type: array
+          description: Enriched RAG citations preserved from the 15-minute escalation draft.
+          items:
+            $ref: '#/components/schemas/Citation'
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
         channel:

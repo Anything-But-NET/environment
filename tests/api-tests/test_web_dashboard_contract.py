@@ -212,6 +212,8 @@ class TestWebDashboardDataContracts:
         item = {
             "id": "550e8400-e29b-41d4-a716-446655440000",
             "query_id": "req-123",
+            "requester_email": "oleh.pona@company.com",
+            "question_text": "How to get internet compensation?",
             "status": "PENDING",
             "channel": "slack",
             "reason_code": "LOW_CONFIDENCE",
@@ -228,6 +230,15 @@ class TestWebDashboardDataContracts:
             **item,
             "status": "RESOLVED",
             "resolved_at": "2026-11-23T11:00:00Z",
+            "source_references": [
+                {
+                    "title": "IT Compensation Guidelines",
+                    "url": "https://company.sharepoint.com/docs/it-comp",
+                    "document_id": "doc-456",
+                    "chunk_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "score": 0.42,
+                }
+            ],
             "status_history": [
                 {
                     "id": "660e8400-e29b-41d4-a716-446655440001",

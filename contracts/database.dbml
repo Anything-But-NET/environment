@@ -111,6 +111,9 @@ Enum core.escalation_status {
 Table core.escalations {
   id uuid [pk]
   query_id varchar(255) [not null, unique]
+  requester_email varchar(255) [not null]
+  question_text text [not null]
+  source_references jsonb [not null, default: '[]']
   status core.escalation_status [not null, default: 'PENDING']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
@@ -139,6 +142,19 @@ Table core.escalation_status_history {
 Ref: core.escalations.query_id - core.generation_diagnostics.query_id [delete: restrict]
 Ref: core.escalation_status_history.escalation_id > core.escalations.id [delete: cascade]
 Ref: core.escalation_status_history.changed_by_operator_id > core.dashboard_operators.id [delete: set null]
+
+Table core.escalation_drafts {
+  query_id varchar(255) [pk]
+  requester_email varchar(255) [not null]
+  question_text text [not null]
+  source_references jsonb [not null, default: '[]']
+  created_at timestamptz [not null, default: `now()`]
+  expires_at timestamptz [not null]
+
+  indexes {
+    expires_at [name: 'idx_esc_drafts_expires_at']
+  }
+}
 
 Table core.users {
   email varchar(255) [pk]

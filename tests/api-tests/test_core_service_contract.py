@@ -121,6 +121,11 @@ class TestCoreContractSchemas:
             "updated_at": "2026-11-23T10:20:00Z",
         }
         validate_openapi_schema(payload, "EscalationResponse")
+    def test_escalation_endpoint_documents_ttl_expiration_410(self, openapi_spec, validate_openapi_schema):
+        post_op = openapi_spec["paths"]["/api/v1/chat/escalations"]["post"]
+        assert "410" in post_op["responses"]
+        expired_example = post_op["responses"]["410"]["content"]["application/json"]["example"]
+        validate_openapi_schema(expired_example, "GatewayErrorResponse")
 
 @pytest.mark.skipif(
     not _is_service_up(CORE_BASE_URL),
