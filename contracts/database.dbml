@@ -7,7 +7,7 @@ Table core.document_metadata {
   last_sync_at timestamptz [not null]
 }
 
-Enum sync_status {
+Enum core.sync_status {
   IN_PROGRESS
   COMPLETED
   FAILED_FETCH
@@ -15,10 +15,35 @@ Enum sync_status {
   FAILED_STORAGE
 }
 
+Enum core.dashboard_operator_authority {
+  LOGS
+  METADATA
+  USERS
+  OPERATORS
+  ANALYTICS
+  PROMPTS
+}
+
+Enum core.dashboard_operator_status {
+  ACTIVE
+  BLOCKED
+}
+
+Table core.dashboard_operators {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  authorities "core.dashboard_operator_authority[]" [not null, default: '{}']
+  password_hash text [not null]
+  status core.dashboard_operator_status [not null, default: 'ACTIVE']
+  last_refreshed_at timestamptz [not null, default: `now()`]
+  last_updated_at timestamptz [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
 Table core.document_sync_runs {
   id uuid [pk]
   document_id varchar(255) [not null]
-  status sync_status [not null, default: 'IN_PROGRESS']
+  status core.sync_status [not null, default: 'IN_PROGRESS']
   error_message text
   started_at timestamptz [not null]
   finished_at timestamptz
@@ -28,9 +53,21 @@ Table core.document_sync_runs {
   }
 }
 
+Enum core.chat_channel {
+  SLACK
+  TEAMS
+}
+
 Enum core.generation_outcome {
-  SUCCESS
+  ANSWERED
+  SAFE_NO_ANSWER
+  ESCALATED
   FAILURE
+}
+
+Enum core.question_outcome_reason_code {
+  LOW_CONFIDENCE
+  EMPTY_RETRIEVAL
 }
 
 Enum core.error_category {
@@ -44,17 +81,29 @@ Enum core.error_category {
 
 Table core.generation_diagnostics {
   id uuid [pk]
-  query_id varchar(255) [not null]
+  query_id varchar(255) [not null, unique]
+  channel core.chat_channel [not null, default: 'SLACK']
   outcome core.generation_outcome [not null]
+  reason_code core.question_outcome_reason_code
   error_category core.error_category
   confidence_score float
+  latency_ms integer
+  prompt_version_id uuid
   created_at timestamptz [not null]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    created_at [name: 'idx_gen_diag_created_at']
+    outcome [name: 'idx_gen_diag_outcome']
+    channel [name: 'idx_gen_diag_channel']
+  }
 }
 
 Table core.users {
-    email varchar(255) [pk]
-    allowed_groups "text[]" [not null, default: '{}']
-    last_sync_at timestamptz [not null]
+  email varchar(255) [pk]
+  allowed_groups "text[]" [not null, default: '{}']
+  last_updated timestamptz
+  last_sync_at timestamptz [not null]
 }
 
 Table rag.chunks {
@@ -84,6 +133,7 @@ Table rag.document {
   allowed_groups "text[]" [not null, default: '{}']
   last_updated timestamptz
   last_sync_at timestamptz [not null]
+
   indexes {
     allowed_groups [type: gin, name: 'idx_document_metadata_allowed_groups']
   }
@@ -105,3 +155,18 @@ Ref: rag.vector_nodes.document_id > rag.document.document_id [delete: cascade]
 Ref: rag.chunks.document_id > rag.document.document_id [delete: cascade]
 Ref: rag.vector_chunk_association.vector_node_id > rag.vector_nodes.id [delete: cascade]
 Ref: rag.vector_chunk_association.chunk_id > rag.chunks.id [delete: cascade]
+
+Table rag.prompt_versions {
+  id uuid [pk]
+  prompt_text text [not null]
+  metadata jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table rag.evaluation_runs {
+  id uuid [pk]
+  prompt_version_id uuid [not null, ref: > rag.prompt_versions.id]
+  status varchar [not null, default: 'pending']
+  metadata jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+}

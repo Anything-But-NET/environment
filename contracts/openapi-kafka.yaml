@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: Kafka Event Payload Contracts
+  description: >
+    Event payload specifications for Kafka topics used across services
+    (rag.documents.ingestion.v1, rag.sync.status.v1, rag.users.acl.v1).
+    Shared types and enums are imported from shared.yaml.
+  version: 1.0.0
+
+paths: {}
+
+components:
+  schemas:
+    # -------------------------------------------------------------
+    # 1. Ingestion Events (Topic: rag.documents.ingestion.v1)
+    # -------------------------------------------------------------
+    KafkaNewFileDataEvent:
+      type: object
+      description: "Kafka Topic: rag.documents.ingestion.v1"
+      discriminator:
+        propertyName: action
+      oneOf:
+        - $ref: '#/components/schemas/DocumentUpsertEvent'
+        - $ref: '#/components/schemas/DocumentDeleteEvent'
+        - $ref: '#/components/schemas/DocumentUpdateAclEvent'
+
+    DocumentUpsertEvent:
+      type: object
+      description: "Triggered on document creation or full text update."
+      required:
+        - sync_id
+        - document_id
+        - action
+        - source_system
+        - title
+        - url
+        - raw_content
+        - last_updated
+        - acl
+      properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
+        document_id:
+          type: string
+        action:
+          type: string
+          enum: [create, update]
+        source_system:
+          type: string
+          example: "sharepoint"
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        raw_content:
+          type: string
+          description: "Full plain text payload for chunking and embedding."
+        last_updated:
+          type: string
+          format: date-time
+        acl:
+          $ref: './shared.yaml#/components/schemas/AclPayload'
+
+    DocumentDeleteEvent:
+      type: object
+      description: "Triggered when a document is deleted from source."
+      required:
+        - sync_id
+        - document_id
+        - last_updated
+        - action
+      properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
+        document_id:
+          type: string
+        action:
+          type: string
+          enum: [delete]
+        last_updated:
+          type: string
+          format: date-time
+
+    DocumentUpdateAclEvent:
+      type: object
+      description: "Triggered when document permissions change without text edits."
+      required:
+        - sync_id
+        - document_id
+        - action
+        - last_updated
+        - acl
+      properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
+        document_id:
+          type: string
+        action:
+          type: string
+          enum: [update_acl]
+        last_updated:
+          type: string
+          format: date-time
+        acl:
+          $ref: './shared.yaml#/components/schemas/AclPayload'
+
+    # -------------------------------------------------------------
+    # 2. Sync Status Event (Topic: rag.sync.status.v1, Python -> Java)
+    # -------------------------------------------------------------
+    KafkaSyncStatusEvent:
+      type: object
+      description: "Kafka Topic: rag.sync.status.v1"
+      required:
+        - sync_id
+        - document_id
+        - status
+        - timestamp
+      properties:
+        sync_id:
+          type: string
+          format: uuid
+          description: "Correlation ID of the sync run."
+        document_id:
+          type: string
+          description: "Source document identifier."
+        status:
+          $ref: './shared.yaml#/components/schemas/SyncStatus'
+        error_message:
+          type: string
+          nullable: true
+          description: "Detailed error text if the sync failed."
+        timestamp:
+          type: integer
+          format: int64
+          description: "Unix epoch timestamp in seconds."
+
+    # -------------------------------------------------------------
+    # 3. User ACL Upsert Event (Topic: rag.users.acl.v1)
+    # -------------------------------------------------------------
+    KafkaUserAclUpsert:
+      type: object
+      description: "Kafka Topic: rag.users.acl.v1"
+      required:
+        - email
+        - last_updated
+        - acl
+      properties:
+        email:
+          type: string
+          format: email
+          description: "User email."
+        last_updated:
+          type: string
+          format: date-time
+        acl:
+          $ref: './shared.yaml#/components/schemas/AclPayload'
