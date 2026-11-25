@@ -455,7 +455,7 @@ def test_e2e_rag_acl_filtering_enforced(
         assert doc_restricted not in unauth_doc_ids
         if unauth_resp["status"] == "EMPTY_RETRIEVAL":
             assert unauth_resp["answer"] is None
-            assert unauth_resp["confidence_score"] == 0.0
+            assert unauth_resp["confidence_score"] is None
             assert unauth_resp["citations"] == []
     finally:
         _cleanup_test_data(db_connection, [doc_allowed, doc_restricted])

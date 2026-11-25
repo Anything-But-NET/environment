@@ -81,7 +81,7 @@ class TestRagContractSchemas:
             "query_id": "req-123",
             "status": "EMPTY_RETRIEVAL",
             "answer": None,
-            "confidence_score": 0.0,
+            "confidence_score": None,
             "citations": [],
         }
         validate_openapi_schema(payload, "RagRetrievalResponse")
