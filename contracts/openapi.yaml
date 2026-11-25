@@ -1381,8 +1381,10 @@ components:
           format: float
           minimum: 0.0
           maximum: 1.0
+          nullable: true
           description: >
-            Aggregated confidence score. If below threshold (e.g., 0.5) or status is not
+            Aggregated confidence score, or null when no score could be computed
+            (for example, EMPTY_RETRIEVAL). If below threshold (e.g., 0.5) or status is not
             ANSWER_GENERATED, Core escalates to a human expert.
         prompt_version_id:
           type: string
