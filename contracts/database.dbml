@@ -115,6 +115,9 @@ Table core.escalations {
   question_text text [not null]
   source_references jsonb [not null, default: '[]']
   status core.escalation_status [not null, default: 'PENDING']
+  resolution_text text
+  resolution_updated_at timestamptz
+  resolved_by_operator_id uuid
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
   resolved_at timestamptz
@@ -140,6 +143,7 @@ Table core.escalation_status_history {
 }
 
 Ref: core.escalations.query_id - core.generation_diagnostics.query_id [delete: restrict]
+Ref: core.escalations.resolved_by_operator_id > core.dashboard_operators.id [delete: set null]
 Ref: core.escalation_status_history.escalation_id > core.escalations.id [delete: cascade]
 Ref: core.escalation_status_history.changed_by_operator_id > core.dashboard_operators.id [delete: set null]
 

@@ -259,6 +259,69 @@ class TestWebDashboardDataContracts:
         validate_openapi_schema(detail, "EscalationDetail")
         validate_openapi_schema({"status": "IN_PROGRESS"}, "UpdateEscalationStatusRequest")
 
+    def test_valid_escalation_with_recorded_response_and_save_request(self, validate_openapi_schema):
+        operator_id = "123e4567-e89b-12d3-a456-426614174002"
+        item_with_response = {
+            "id": "550e8400-e29b-41d4-a716-446655440000",
+            "query_id": "req-123",
+            "requester_email": "oleh.pona@company.com",
+            "question_text": "How to get internet compensation?",
+            "status": "RESOLVED",
+            "resolution_text": "Submit the IT reimbursement form in the Finance portal.",
+            "resolution_updated_at": "2026-11-23T11:00:00Z",
+            "resolved_by_operator_id": operator_id,
+            "channel": "slack",
+            "reason_code": "LOW_CONFIDENCE",
+            "confidence_score": 0.31,
+            "created_at": "2026-11-23T10:15:30Z",
+            "updated_at": "2026-11-23T11:00:00Z",
+            "resolved_at": "2026-11-23T11:00:00Z",
+        }
+        validate_openapi_schema(
+            {"items": [item_with_response], "page": 0, "size": 20, "total_elements": 1, "total_pages": 1},
+            "EscalationsPage",
+        )
+        validate_openapi_schema(
+            {
+                **item_with_response,
+                "source_references": [],
+                "status_history": [
+                    {
+                        "id": "660e8400-e29b-41d4-a716-446655440002",
+                        "from_status": "IN_PROGRESS",
+                        "to_status": "RESOLVED",
+                        "changed_by_operator_id": operator_id,
+                        "changed_at": "2026-11-23T11:00:00Z",
+                    }
+                ],
+            },
+            "EscalationDetail",
+        )
+        validate_openapi_schema(
+            {"resolution_text": "Submit the IT reimbursement form in the Finance portal."},
+            "SaveEscalationResponseRequest",
+        )
+        validate_openapi_schema(
+            {
+                "resolution_text": "Submit the IT reimbursement form in the Finance portal.",
+                "status": "RESOLVED",
+            },
+            "SaveEscalationResponseRequest",
+        )
+
+    @pytest.mark.parametrize(
+        "invalid_payload",
+        [
+            {},
+            {"resolution_text": ""},
+            {"resolution_text": "Answer", "status": "UNKNOWN"},
+            {"resolution_text": "Answer", "extra": "not-allowed"},
+        ],
+    )
+    def test_save_escalation_response_rejects_invalid_payload(self, validate_openapi_schema, invalid_payload):
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(invalid_payload, "SaveEscalationResponseRequest")
+
     def test_update_escalation_status_rejects_invalid_enum(self, validate_openapi_schema):
         with pytest.raises(jsonschema.ValidationError):
             validate_openapi_schema({"status": "REOPENED"}, "UpdateEscalationStatusRequest")
