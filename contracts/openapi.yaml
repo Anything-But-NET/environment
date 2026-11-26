@@ -801,6 +801,49 @@ paths:
         '404':
           $ref: '#/components/responses/DashboardNotFound'
 
+  /api/v1/dash/escalations/{id}/response:
+    put:
+      tags:
+        - "Dashboard: Escalations (Core)"
+      summary: "[Web Dashboard] Record or update expert response on an escalation"
+      description: >
+        Records or updates the expert's answer/resolution text on an escalation
+        and optionally transitions its lifecycle status (e.g. IN_PROGRESS or
+        RESOLVED). Records an audit entry in core.escalation_status_history if
+        the status changes. Requires ESCALATIONS or OPERATORS authority.
+      operationId: saveEscalationResponse
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escalation UUID.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveEscalationResponseRequest'
+      responses:
+        '200':
+          description: Escalation response saved and updated detail returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationDetail'
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
+        '404':
+          $ref: '#/components/responses/DashboardNotFound'
+
   # =============================================================
   # DASHBOARD: PROMPTS (RAG)
   # =============================================================
@@ -2248,6 +2291,17 @@ components:
           minLength: 1
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        resolution_text:
+          type: string
+          nullable: true
+        resolution_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by_operator_id:
+          type: string
+          format: uuid
+          nullable: true
         channel:
           allOf:
             - $ref: './shared.yaml#/components/schemas/ChatChannel'
@@ -2330,6 +2384,17 @@ components:
             $ref: '#/components/schemas/Citation'
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        resolution_text:
+          type: string
+          nullable: true
+        resolution_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by_operator_id:
+          type: string
+          format: uuid
+          nullable: true
         channel:
           allOf:
             - $ref: './shared.yaml#/components/schemas/ChatChannel'
@@ -2367,6 +2432,21 @@ components:
       properties:
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+
+    SaveEscalationResponseRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - resolution_text
+      properties:
+        resolution_text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        status:
+          allOf:
+            - $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+          nullable: true
 
     EscalationsPage:
       type: object
