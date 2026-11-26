@@ -13,6 +13,8 @@ tags:
     description: Communication between Chat Gateway (Slack/Teams) and Core service.
   - name: CoreToRag
     description: Communication between Core and RAG/Retrieval service.
+  - name: RagEvaluation
+    description: Repeatable MVP answer-quality evaluation runs against the Golden Set.
   - name: Internal Auth
     description: Internal service-to-service token introspection exposed by Core.
   - name: "Dashboard: Auth (Core)"
@@ -303,6 +305,83 @@ paths:
                 message: "Failed to connect to vector database cluster"
                 description: "Connection timed out after 5000ms"
                 timestamp: 1730000000
+
+  # =============================================================
+  # RAG EVALUATION (SCRUM-66)
+  # =============================================================
+  /api/v1/rag/evaluations/runs:
+    post:
+      tags: [RagEvaluation]
+      summary: "[RAG Evaluation] Execute MVP answer-quality evaluation run on Golden Set"
+      operationId: runQualityEvaluation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EvaluationRunCreateRequest' }
+      responses:
+        '201':
+          description: Evaluation run completed and persisted in rag.evaluation_runs.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvaluationRunResponse' }
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '404':
+          description: Prompt version or Golden Set dataset not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '422':
+          description: Unprocessable Entity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '503':
+          description: Service Unavailable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+
+  /api/v1/rag/evaluations/runs/{run_id}:
+    get:
+      tags: [RagEvaluation]
+      summary: "[RAG Evaluation] Get evaluation run report by ID"
+      operationId: getEvaluationRun
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Evaluation run report.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvaluationRunResponse' }
+        '404':
+          description: Evaluation run not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '422':
+          description: Unprocessable Entity (invalid run_id UUID).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationError' }
 
   # =============================================================
   # WEB DASHBOARD BFF -> CORE (WebAPI)
@@ -1482,6 +1561,117 @@ components:
           type: integer
           format: int64
           description: Unix epoch timestamp in seconds when the error occurred.
+
+    # -------------------------------------------------------------
+    # RAG EVALUATION (SCRUM-66)
+    # -------------------------------------------------------------
+    QualityThresholdsConfig:
+      type: object
+      required: [decision_status, relevance_min_score, factual_grounding_min_score, citation_correctness_min_score, target_pass_rate]
+      properties:
+        decision_status: { $ref: './shared.yaml#/components/schemas/ThresholdDecisionStatus' }
+        relevance_min_score: { type: number, format: float, minimum: 0.0, maximum: 1.0, default: 0.75 }
+        factual_grounding_min_score: { type: number, format: float, minimum: 0.0, maximum: 1.0, default: 0.85 }
+        citation_correctness_min_score: { type: number, format: float, minimum: 0.0, maximum: 1.0, default: 1.0 }
+        target_pass_rate: { type: number, format: float, minimum: 0.0, maximum: 1.0, default: 0.85 }
+
+    EvaluationDatasetConfig:
+      type: object
+      required: [dataset_id, dataset_version]
+      properties:
+        dataset_id: { type: string, minLength: 1 }
+        dataset_version: { type: string, minLength: 1 }
+        dataset_path: { type: string, nullable: true }
+        known_limitations: { type: array, items: { type: string } }
+
+    EvaluationRunCreateRequest:
+      type: object
+      required: [prompt_version_id, dataset, thresholds]
+      properties:
+        prompt_version_id: { type: string, format: uuid }
+        dataset: { $ref: '#/components/schemas/EvaluationDatasetConfig' }
+        thresholds: { $ref: '#/components/schemas/QualityThresholdsConfig' }
+
+    QualityCheckResult:
+      type: object
+      required: [applicable, passed, score, threshold, calculation_method]
+      properties:
+        applicable: { type: boolean }
+        passed: { type: boolean }
+        score: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        threshold: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        calculation_method: { type: string, minLength: 1 }
+        details: { type: object, nullable: true }
+
+    CaseEvaluationResult:
+      type: object
+      required: [case_id, query, expected_outcome, actual_status, passed, checks, failure_reasons]
+      properties:
+        case_id: { type: string }
+        query: { type: string }
+        expected_outcome: { $ref: './shared.yaml#/components/schemas/ExpectedOutcomeType' }
+        expected_document_ids: { type: array, items: { type: string } }
+        actual_status: { type: string, enum: [ANSWER_GENERATED, EMPTY_RETRIEVAL, LOW_CONFIDENCE, ERROR] }
+        actual_answer: { type: string, nullable: true }
+        actual_confidence_score: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        actual_citations: { type: array, items: { $ref: '#/components/schemas/RagCitation' } }
+        passed: { type: boolean }
+        checks:
+          type: object
+          required: [relevance, factual_grounding, citation_correctness, safe_no_answer]
+          properties:
+            relevance: { $ref: '#/components/schemas/QualityCheckResult' }
+            factual_grounding: { $ref: '#/components/schemas/QualityCheckResult' }
+            citation_correctness: { $ref: '#/components/schemas/QualityCheckResult' }
+            safe_no_answer: { $ref: '#/components/schemas/QualityCheckResult' }
+        failure_reasons: { type: array, items: { type: string } }
+
+    DimensionAggregateSummary:
+      type: object
+      required:
+        - dimension
+        - evaluated_cases_count
+        - passed_cases_count
+        - observed_pass_rate
+        - observed_mean_score
+        - proposed_threshold_score
+        - proposed_target_pass_rate
+        - threshold_decision_status
+        - meets_proposed_threshold
+      properties:
+        dimension: { $ref: './shared.yaml#/components/schemas/QualityDimension' }
+        evaluated_cases_count: { type: integer, minimum: 0 }
+        passed_cases_count: { type: integer, minimum: 0 }
+        observed_pass_rate: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        observed_mean_score: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        proposed_threshold_score: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        proposed_target_pass_rate: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        threshold_decision_status: { $ref: './shared.yaml#/components/schemas/ThresholdDecisionStatus' }
+        meets_proposed_threshold: { type: boolean }
+
+    EvaluationRunMetadataPayload:
+      type: object
+      required: [dataset, thresholds, total_cases, passed_cases, failed_cases, overall_pass_rate, dimension_summaries, case_results]
+      properties:
+        dataset: { $ref: '#/components/schemas/EvaluationDatasetConfig' }
+        thresholds: { $ref: '#/components/schemas/QualityThresholdsConfig' }
+        total_cases: { type: integer, minimum: 0 }
+        passed_cases: { type: integer, minimum: 0 }
+        failed_cases: { type: integer, minimum: 0 }
+        overall_pass_rate: { type: number, format: float, minimum: 0.0, maximum: 1.0 }
+        dimension_summaries: { type: array, items: { $ref: '#/components/schemas/DimensionAggregateSummary' } }
+        followup_jira_issues: { type: array, items: { type: string } }
+        case_results: { type: array, items: { $ref: '#/components/schemas/CaseEvaluationResult' } }
+
+    EvaluationRunResponse:
+      type: object
+      required: [id, prompt_version_id, status, metadata, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        prompt_version_id: { type: string, format: uuid }
+        status: { $ref: './shared.yaml#/components/schemas/EvaluationRunStatus' }
+        metadata: { $ref: '#/components/schemas/EvaluationRunMetadataPayload' }
+        created_at: { type: string, format: date-time }
 
     # -------------------------------------------------------------
     # WEB DASHBOARD (WebAPI)

@@ -84,6 +84,23 @@ components:
         - BLOCKED
       description: Dashboard operator account status (matches core.dashboard_operator_status).
 
+    EvaluationRunStatus:
+      type: string
+      enum: [pending, running, completed, failed]
+
+    ThresholdDecisionStatus:
+      type: string
+      enum: [PROPOSED, APPROVED]
+      default: PROPOSED
+
+    ExpectedOutcomeType:
+      type: string
+      enum: [ANSWER_EXPECTED, INSUFFICIENT_EVIDENCE]
+
+    QualityDimension:
+      type: string
+      enum: [relevance, factual_grounding, citation_correctness, safe_no_answer]
+
     HealthStatus:
       type: string
       enum:
