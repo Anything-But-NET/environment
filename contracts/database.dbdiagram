@@ -1,5 +1,5 @@
 {
-  "version": "3.0.0",
+  "version": "4.0.0",
   "darkMode": true,
   "gridEnabling": false,
   "currentViewName": null,
@@ -28,8 +28,8 @@
       {
         "name": "generation_diagnostics",
         "schemaName": "core",
-        "x": 1070.5244140625,
-        "y": 12
+        "x": 1072.9547528258524,
+        "y": -44.70790447822471
       },
       {
         "name": "users",
@@ -60,6 +60,18 @@
         "schemaName": "rag",
         "x": 1070.41845703125,
         "y": 684
+      },
+      {
+        "name": "prompt_versions",
+        "schemaName": "rag",
+        "x": 447.314453125,
+        "y": 386
+      },
+      {
+        "name": "evaluation_runs",
+        "schemaName": "rag",
+        "x": 928.22607421875,
+        "y": 386
       }
     ],
     "tableGroupCollapseStates": [],
@@ -139,8 +151,26 @@
         "secondSchemaName": "rag",
         "secondRelation": "1",
         "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "prompt_versions",
+        "firstSchemaName": "rag",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "prompt_version_id"
+        ],
+        "secondTableName": "evaluation_runs",
+        "secondSchemaName": "rag",
+        "secondRelation": "*",
+        "checkPoints": []
       }
-    ]
+    ],
+    "elementPositions": [],
+    "groupCollapseStates": [],
+    "linkPaths": []
   },
   "views": {}
 }
