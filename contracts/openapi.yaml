@@ -756,6 +756,72 @@ paths:
           $ref: '#/components/responses/DashboardUnauthorized'
         '403':
           $ref: '#/components/responses/DashboardForbidden'
+  /api/v1/dash/analytics/escalations:
+    get:
+      tags:
+        - "Dashboard: Logs & Analytics (Core)"
+      summary: "[Web Dashboard] Get aggregated escalation and resolution analytics"
+      description: >
+        Returns aggregated escalation lifecycle and resolution metrics computed
+        from core.escalations joined with core.generation_diagnostics for channel
+        filtering. Enforces strict permission boundaries: exposes only counts,
+        rates, and resolution timing aggregates — never exposes question_text,
+        resolution_text, requester_email, source_references, or operator PII.
+        Requires ANALYTICS authority.
+      operationId: getEscalationAnalytics
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/FromTimestampParam'
+        - $ref: '#/components/parameters/ToTimestampParam'
+        - name: channel
+          in: query
+          required: false
+          description: Optional filter by communication channel.
+          schema:
+            $ref: './shared.yaml#/components/schemas/ChatChannel'
+      responses:
+        '200':
+          description: Aggregated escalation and resolution analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationAnalyticsResponse'
+              example:
+                from: "2026-11-18T00:00:00Z"
+                to: "2026-11-21T00:00:00Z"
+                total_escalations: 10
+                status_counts:
+                  - status: "PENDING"
+                    count: 2
+                  - status: "IN_PROGRESS"
+                    count: 1
+                  - status: "RESOLVED"
+                    count: 5
+                  - status: "CLOSED"
+                    count: 1
+                  - status: "CANCELLED"
+                    count: 1
+                resolved_count: 6
+                resolution_rate: 0.6
+                avg_resolution_time_ms: 5400000.0
+                p95_resolution_time_ms: 14400000.0
+                daily_trend:
+                  - date: "2026-11-18"
+                    total_escalations: 3
+                    resolved_count: 2
+                  - date: "2026-11-19"
+                    total_escalations: 4
+                    resolved_count: 2
+                  - date: "2026-11-20"
+                    total_escalations: 3
+                    resolved_count: 2
+        '400':
+          $ref: '#/components/responses/DashboardBadRequest'
+        '401':
+          $ref: '#/components/responses/DashboardUnauthorized'
+        '403':
+          $ref: '#/components/responses/DashboardForbidden'
 
   # =============================================================
   # DASHBOARD: ESCALATIONS (CORE)
@@ -1875,6 +1941,14 @@ components:
           allOf:
             - $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
           nullable: true
+        resolution_id:
+          type: string
+          format: uuid
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -2481,6 +2555,11 @@ components:
           minLength: 1
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        resolution_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Stable persistent UUID generated once when the first expert resolution is saved.
         resolution_text:
           type: string
           nullable: true
@@ -2574,6 +2653,11 @@ components:
             $ref: '#/components/schemas/Citation'
         status:
           $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        resolution_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Stable persistent UUID generated once when the first expert resolution is saved.
         resolution_text:
           type: string
           nullable: true
@@ -2659,3 +2743,96 @@ components:
         total_pages:
           type: integer
           minimum: 0
+    EscalationStatusCount:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - count
+      properties:
+        status:
+          $ref: './shared.yaml#/components/schemas/EscalationResolutionStatus'
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    DailyEscalationPoint:
+      type: object
+      additionalProperties: false
+      required:
+        - date
+        - total_escalations
+        - resolved_count
+      properties:
+        date:
+          type: string
+          format: date
+          description: UTC calendar date (YYYY-MM-DD).
+        total_escalations:
+          type: integer
+          format: int64
+          minimum: 0
+        resolved_count:
+          type: integer
+          format: int64
+          minimum: 0
+    EscalationAnalyticsResponse:
+      type: object
+      additionalProperties: false
+      description: >
+        Aggregated escalation and resolution analytics. Strictly excludes
+        question_text, resolution_text, requester_email, source_references,
+        and operator PII to enforce permission boundaries.
+      required:
+        - total_escalations
+        - status_counts
+        - resolved_count
+        - daily_trend
+      properties:
+        from:
+          type: string
+          format: date-time
+          nullable: true
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        total_escalations:
+          type: integer
+          format: int64
+          minimum: 0
+        status_counts:
+          type: array
+          description: Aggregated counts grouped by EscalationResolutionStatus enum.
+          items:
+            $ref: '#/components/schemas/EscalationStatusCount'
+        resolved_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of escalations that have been resolved (resolved_at is set).
+        resolution_rate:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+          description: Ratio of resolved_count to total_escalations (null when total_escalations is 0).
+        avg_resolution_time_ms:
+          type: number
+          format: float
+          minimum: 0.0
+          nullable: true
+          description: Mean time from escalation creation to resolution in milliseconds.
+        p95_resolution_time_ms:
+          type: number
+          format: float
+          minimum: 0.0
+          nullable: true
+          description: 95th percentile time from escalation creation to resolution in milliseconds.
+        daily_trend:
+          type: array
+          description: Daily escalation and resolution counts ordered ascending by UTC date.
+          items:
+            $ref: '#/components/schemas/DailyEscalationPoint'

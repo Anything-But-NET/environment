@@ -267,6 +267,7 @@ class TestWebDashboardDataContracts:
             "requester_email": "oleh.pona@company.com",
             "question_text": "How to get internet compensation?",
             "status": "RESOLVED",
+            "resolution_id": "770e8400-e29b-41d4-a716-446655440000",
             "resolution_text": "Submit the IT reimbursement form in the Finance portal.",
             "resolution_updated_at": "2026-11-23T11:00:00Z",
             "resolved_by_operator_id": operator_id,
@@ -514,6 +515,80 @@ class TestWebDashboardDataContracts:
             "TokenIntrospectResponse",
         )
 
+    def test_valid_escalation_analytics_response(self, validate_openapi_schema):
+        payload = {
+            "from": "2026-11-18T00:00:00Z",
+            "to": "2026-11-21T00:00:00Z",
+            "total_escalations": 10,
+            "status_counts": [
+                {"status": "PENDING", "count": 2},
+                {"status": "IN_PROGRESS", "count": 1},
+                {"status": "RESOLVED", "count": 5},
+                {"status": "CLOSED", "count": 1},
+                {"status": "CANCELLED", "count": 1},
+            ],
+            "resolved_count": 6,
+            "resolution_rate": 0.6,
+            "avg_resolution_time_ms": 5400000.0,
+            "p95_resolution_time_ms": 14400000.0,
+            "daily_trend": [
+                {"date": "2026-11-18", "total_escalations": 3, "resolved_count": 2},
+                {"date": "2026-11-19", "total_escalations": 4, "resolved_count": 2},
+                {"date": "2026-11-20", "total_escalations": 3, "resolved_count": 2},
+            ],
+        }
+        validate_openapi_schema(payload, "EscalationAnalyticsResponse")
+
+        empty_payload = {
+            "from": None,
+            "to": None,
+            "total_escalations": 0,
+            "status_counts": [],
+            "resolved_count": 0,
+            "resolution_rate": None,
+            "avg_resolution_time_ms": None,
+            "p95_resolution_time_ms": None,
+            "daily_trend": [],
+        }
+        validate_openapi_schema(empty_payload, "EscalationAnalyticsResponse")
+
+    @pytest.mark.parametrize(
+        "leaked_field",
+        [
+            {"question_text": "Confidential question"},
+            {"resolution_text": "Confidential answer"},
+            {"requester_email": "employee@company.com"},
+            {"source_references": []},
+            {"resolved_by_operator_id": "123e4567-e89b-12d3-a456-426614174002"},
+        ],
+    )
+    def test_escalation_analytics_rejects_sensitive_fields(self, validate_openapi_schema, leaked_field):
+        payload = {
+            "total_escalations": 1,
+            "status_counts": [{"status": "RESOLVED", "count": 1}],
+            "resolved_count": 1,
+            "resolution_rate": 1.0,
+            "avg_resolution_time_ms": 1000.0,
+            "p95_resolution_time_ms": 1000.0,
+            "daily_trend": [{"date": "2026-11-23", "total_escalations": 1, "resolved_count": 1}],
+            **leaked_field,
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            validate_openapi_schema(payload, "EscalationAnalyticsResponse")
+
+    def test_generation_log_item_accepts_resolution_metadata(self, validate_openapi_schema):
+        payload = {
+            "id": "123e4567-e89b-12d3-a456-426614174001",
+            "query_id": "req-123",
+            "outcome": "ESCALATED",
+            "escalation_id": "550e8400-e29b-41d4-a716-446655440000",
+            "resolution_status": "RESOLVED",
+            "resolution_id": "770e8400-e29b-41d4-a716-446655440000",
+            "resolved_at": "2026-11-23T11:00:00Z",
+            "created_at": "2026-11-23T10:15:30Z",
+        }
+        validate_openapi_schema(payload, "GenerationLogItem")
+
 
 class TestWebDashboardEndpointSpecs:
     """Verifies query parameters (pagination & log date filters) and security rules in openapi.yaml."""
@@ -547,6 +622,7 @@ class TestWebDashboardEndpointSpecs:
             "/api/v1/dash/logs/generation",
             "/api/v1/dash/analytics/outcomes",
             "/api/v1/dash/analytics/prompts/{prompt_version_id}/outcomes",
+            "/api/v1/dash/analytics/escalations",
             "/api/v1/dash/escalations",
         ],
     )
