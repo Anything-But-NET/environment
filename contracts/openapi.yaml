@@ -756,6 +756,7 @@ paths:
           $ref: '#/components/responses/DashboardUnauthorized'
         '403':
           $ref: '#/components/responses/DashboardForbidden'
+
   /api/v1/dash/analytics/escalations:
     get:
       tags:
@@ -764,7 +765,10 @@ paths:
       description: >
         Returns aggregated escalation lifecycle and resolution metrics computed
         from core.escalations joined with core.generation_diagnostics for channel
-        filtering. Enforces strict permission boundaries: exposes only counts,
+        filtering. Time-range filters (from, to) and daily_trend grouping operate
+        as creation cohorts on core.escalations.created_at (UTC): each daily bucket
+        reports how many escalations created on that UTC date currently have
+        resolved_at set. Enforces strict permission boundaries: exposes only counts,
         rates, and resolution timing aggregates — never exposes question_text,
         resolution_text, requester_email, source_references, or operator PII.
         Requires ANALYTICS authority.
@@ -1945,10 +1949,15 @@ components:
           type: string
           format: uuid
           nullable: true
+          description: >
+            Stable persistent UUID generated once when the escalation transitions
+            to a resolved state (RESOLVED or CLOSED). Always null while the
+            escalation is PENDING, IN_PROGRESS, or CANCELLED (including drafts).
         resolved_at:
           type: string
           format: date-time
           nullable: true
+          description: UTC timestamp when the escalation first transitioned to a resolved state.
         created_at:
           type: string
           format: date-time
@@ -2559,7 +2568,10 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: Stable persistent UUID generated once when the first expert resolution is saved.
+          description: >
+            Stable persistent UUID generated once when the escalation transitions
+            to a resolved state (RESOLVED or CLOSED). Remains null for drafts and
+            non-resolved states (PENDING, IN_PROGRESS, CANCELLED).
         resolution_text:
           type: string
           nullable: true
@@ -2657,7 +2669,10 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: Stable persistent UUID generated once when the first expert resolution is saved.
+          description: >
+            Stable persistent UUID generated once when the escalation transitions
+            to a resolved state (RESOLVED or CLOSED). Remains null for drafts and
+            non-resolved states (PENDING, IN_PROGRESS, CANCELLED).
         resolution_text:
           type: string
           nullable: true
@@ -2768,15 +2783,19 @@ components:
         date:
           type: string
           format: date
-          description: UTC calendar date (YYYY-MM-DD).
+          description: UTC creation cohort calendar date (YYYY-MM-DD, grouped by escalations.created_at).
         total_escalations:
           type: integer
           format: int64
           minimum: 0
+          description: Total escalations created on this UTC date.
         resolved_count:
           type: integer
           format: int64
           minimum: 0
+          description: >
+            Cohort metric: number of escalations created on this UTC date that
+            are currently resolved (resolved_at IS NOT NULL).
     EscalationAnalyticsResponse:
       type: object
       additionalProperties: false

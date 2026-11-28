@@ -662,3 +662,13 @@ class TestWebDashboardEndpointSpecs:
         resp = openapi_spec["components"]["responses"][response_name]
         example = resp["content"]["application/json"]["example"]
         assert example["error_code"] == expected_error_code
+
+    def test_escalation_analytics_endpoint_requires_bearer_auth_and_channel_filter(self, openapi_spec):
+        op = openapi_spec["paths"]["/api/v1/dash/analytics/escalations"]["get"]
+        assert op.get("security") == [{"bearerAuth": []}]
+
+        params = {_resolve_param(p, openapi_spec)["name"]: _resolve_param(p, openapi_spec) for p in op["parameters"]}
+        assert "channel" in params
+        assert params["channel"]["in"] == "query"
+        assert params["channel"]["required"] is False
+        assert params["channel"]["schema"] == {"$ref": "./shared.yaml#/components/schemas/ChatChannel"}
