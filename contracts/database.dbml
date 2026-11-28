@@ -115,6 +115,7 @@ Table core.escalations {
   question_text text [not null]
   source_references jsonb [not null, default: '[]']
   status core.escalation_status [not null, default: 'PENDING']
+  resolution_id uuid [unique]
   resolution_text text
   resolution_updated_at timestamptz
   resolved_by_operator_id uuid
